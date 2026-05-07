@@ -38,6 +38,9 @@ let UserController = class UserController {
     remove(uid) {
         return this.userService.remove(uid);
     }
+    getUserPermissions(userId) {
+        return this.userService.getUserPermissions(userId);
+    }
 };
 exports.UserController = UserController;
 __decorate([
@@ -93,6 +96,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)(':userId/permissions'),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar permissões do usuário' }),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "getUserPermissions", null);
 exports.UserController = UserController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, common_1.Controller)('users'),

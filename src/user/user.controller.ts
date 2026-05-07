@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Put, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Put, Param, Delete, Get } from '@nestjs/common';
 import { UserService } from './user.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/user-create.dto';
@@ -52,5 +52,11 @@ export class UserController {
     @ApiOperation({ summary: 'Remover usuário' })
     remove(@Param('uid') uid: string) {
         return this.userService.remove(uid);
+    }
+
+    @Get(':userId/permissions')
+    @ApiOperation({ summary: 'Listar permissões do usuário' })
+    getUserPermissions(@Param('userId') userId: string) {
+        return this.userService.getUserPermissions(userId);
     }
 }

@@ -65,7 +65,24 @@ let UserService = class UserService {
             throw new common_1.BadRequestException('Empresa é obrigatória');
         }
         const company = await this.findCompany(dto.companyId);
+        if (company?.plan == null) {
+            throw new common_1.BadRequestException('Empresa não possui plano definido');
+        }
         const password = await this.hashPassword(dto.password);
+        let plan = null;
+        if (dto.permissionIds?.length) {
+            const companyPermissionIds = company.plan?.permissions.map((p) => p.id) ?? [];
+            const invalidPermissions = dto.permissionIds.filter((id) => !companyPermissionIds.includes(id));
+            if (invalidPermissions.length > 0) {
+                throw new common_1.BadRequestException('Permissões inválidas para esta empresa');
+            }
+            plan = this.planRepo.create({
+                name: `custom-admin-${dto.username}`,
+                isSystem: false,
+                permissions: company.plan.permissions.filter((p) => dto.permissionIds.includes(p.id)),
+            });
+            plan = await this.planRepo.save(plan);
+        }
         const user = this.userRepo.create({
             uid: (0, uuid_1.v4)(),
             username: dto.username,
@@ -73,7 +90,7 @@ let UserService = class UserService {
             password,
             role: user_entity_1.UserRole.EMPRESA,
             company: company ?? undefined,
-            plan: company?.plan ?? null,
+            plan: plan ?? company.plan ?? null,
         });
         return this.userRepo.save(user);
     }
@@ -151,6 +168,16 @@ let UserService = class UserService {
             throw new common_1.BadRequestException('Não é permitido remover MASTER');
         }
         await this.userRepo.remove(user);
+    }
+    async getUserPermissions(userId) {
+        const user = await this.userRepo.findOne({
+            where: { uid: userId },
+            relations: ['plan', 'plan.permissions'],
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('Usuário não encontrado');
+        }
+        return user.plan?.permissions ?? [];
     }
 };
 exports.UserService = UserService;

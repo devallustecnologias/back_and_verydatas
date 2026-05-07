@@ -13,6 +13,7 @@ import { User, UserRole } from 'src/entities/user/user.entity';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { Plan } from 'src/entities/plan/plan.entity';
+import { Permission } from 'src/entities/permission/permission.entity';
 
 @Injectable()
 export class UserService {
@@ -71,7 +72,41 @@ export class UserService {
 
         const company = await this.findCompany(dto.companyId);
 
+        if (company?.plan == null) {
+            throw new BadRequestException('Empresa não possui plano definido');
+        }
+
         const password = await this.hashPassword(dto.password);
+
+        let plan: Plan | null = null;
+
+        // se veio plano customizado
+        if (dto.permissionIds?.length) {
+            const companyPermissionIds =
+                company.plan?.permissions.map((p) => p.id) ?? [];
+
+            // valida se permissões estão dentro da empresa
+            const invalidPermissions = dto.permissionIds.filter(
+                (id) => !companyPermissionIds.includes(id),
+            );
+
+            if (invalidPermissions.length > 0) {
+                throw new BadRequestException(
+                    'Permissões inválidas para esta empresa',
+                );
+            }
+
+            // monta plano customizado
+            plan = this.planRepo.create({
+                name: `custom-admin-${dto.username}`,
+                isSystem: false,
+                permissions: company.plan!.permissions.filter((p) =>
+                    dto.permissionIds!.includes(p.id),
+                ),
+            });
+
+            plan = await this.planRepo.save(plan);
+        }
 
         const user = this.userRepo.create({
             uid: uuidv4(),
@@ -80,9 +115,7 @@ export class UserService {
             password,
             role: UserRole.EMPRESA,
             company: company ?? undefined,
-
-            // opcional: herdar plano da empresa
-            plan: company?.plan ?? null,
+            plan: plan ?? company.plan ?? null,
         });
 
         return this.userRepo.save(user);
@@ -138,7 +171,7 @@ export class UserService {
             password,
             role: UserRole.OPERADOR,
             company: company ?? undefined,
-            plan, 
+            plan,
         });
 
         return this.userRepo.save(user);
@@ -198,6 +231,17 @@ export class UserService {
 
         await this.userRepo.remove(user);
     }
+    async getUserPermissions(userId: string): Promise<Permission[]> {
+        const user = await this.userRepo.findOne({
+            where: { uid: userId },
+            relations: ['plan', 'plan.permissions'],
+        });
 
+        if (!user) {
+            throw new NotFoundException('Usuário não encontrado');
+        }
+
+        return user.plan?.permissions ?? [];
+    }
 
 }

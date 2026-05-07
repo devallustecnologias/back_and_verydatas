@@ -9,4 +9,5 @@ export declare class UserController {
     createOperator(dto: CreateUserDto): Promise<import("../entities/user/user.entity").User>;
     update(uid: string, dto: UpdateUserDto): Promise<import("../entities/user/user.entity").User>;
     remove(uid: string): Promise<void>;
+    getUserPermissions(userId: string): Promise<import("../entities/permission/permission.entity").Permission[]>;
 }
