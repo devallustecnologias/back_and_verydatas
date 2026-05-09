@@ -18,6 +18,7 @@ const user_service_1 = require("./user.service");
 const swagger_1 = require("@nestjs/swagger");
 const user_create_dto_1 = require("./dto/user-create.dto");
 const user_update_dto_1 = require("./dto/user-update.dto");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 let UserController = class UserController {
     userService;
     constructor(userService) {
@@ -97,6 +98,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "remove", null);
 __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Get)(':userId/permissions'),
     (0, swagger_1.ApiOperation)({ summary: 'Listar permissões do usuário' }),
     __param(0, (0, common_1.Param)('userId')),

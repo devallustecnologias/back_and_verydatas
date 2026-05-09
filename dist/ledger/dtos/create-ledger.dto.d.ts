@@ -5,6 +5,5 @@ export declare class CreateLedgerDto {
     description: string;
     origin?: LedgerOrigin;
     referenceId?: string;
-    companyId?: number;
-    userId?: string;
+    walletId: string;
 }

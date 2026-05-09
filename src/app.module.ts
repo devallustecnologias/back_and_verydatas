@@ -1,3 +1,4 @@
+import { WalletModule } from './wallet/wallet.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { CompanyModule } from './company/company.module';
 import { PermissionModule } from './entities/permission/permission.module';
@@ -10,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
+    WalletModule,
     LedgerModule,
     CompanyModule,
     PermissionModule,

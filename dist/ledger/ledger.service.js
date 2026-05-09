@@ -19,14 +19,17 @@ const ledger_entity_1 = require("./ledger.entity");
 const typeorm_2 = require("typeorm");
 const company_entity_1 = require("../company/company.entity");
 const user_entity_1 = require("../entities/user/user.entity");
+const walled_entity_1 = require("./walled.entity");
 let LedgerService = class LedgerService {
     ledgerRepo;
     companyRepo;
     userRepo;
-    constructor(ledgerRepo, companyRepo, userRepo) {
+    walletRepo;
+    constructor(ledgerRepo, companyRepo, userRepo, walletRepo) {
         this.ledgerRepo = ledgerRepo;
         this.companyRepo = companyRepo;
         this.userRepo = userRepo;
+        this.walletRepo = walletRepo;
     }
     async findAll() {
         return this.ledgerRepo.find({
@@ -48,23 +51,11 @@ let LedgerService = class LedgerService {
         if (dto.amount <= 0) {
             throw new common_1.BadRequestException('Valor deve ser maior que zero');
         }
-        let company = null;
-        let user = null;
-        if (dto.companyId) {
-            company = await this.companyRepo.findOne({
-                where: { id: dto.companyId },
-            });
-            if (!company) {
-                throw new common_1.NotFoundException('Empresa não encontrada');
-            }
-        }
-        if (dto.userId) {
-            user = await this.userRepo.findOne({
-                where: { uid: dto.userId },
-            });
-            if (!user) {
-                throw new common_1.NotFoundException('Usuário não encontrado');
-            }
+        const wallet = await this.walletRepo.findOne({
+            where: { id: dto.walletId },
+        });
+        if (!wallet) {
+            throw new common_1.NotFoundException('Wallet não encontrada');
         }
         const ledger = this.ledgerRepo.create({
             amount: dto.amount,
@@ -72,8 +63,7 @@ let LedgerService = class LedgerService {
             description: dto.description,
             origin: dto.origin,
             referenceId: dto.referenceId,
-            company,
-            user,
+            wallet,
         });
         return this.ledgerRepo.save(ledger);
     }
@@ -88,7 +78,9 @@ exports.LedgerService = LedgerService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(ledger_entity_1.Ledger)),
     __param(1, (0, typeorm_1.InjectRepository)(company_entity_1.Company)),
     __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(3, (0, typeorm_1.InjectRepository)(walled_entity_1.Wallet)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])
 ], LedgerService);

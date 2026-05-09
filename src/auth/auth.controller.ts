@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { User } from '../entities/user/user.entity';
@@ -74,6 +74,7 @@ export class AuthController {
     }
   }
 
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user information' })
   @ApiResponse({ status: 200, description: 'User information retrieved successfully', type: User })
   @ApiResponse({ status: 401, description: 'Unauthorized: Missing or invalid token' })
@@ -81,6 +82,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@Req() req: any): User {
+    console.log(req.user)
     return req.user;
   }
 }

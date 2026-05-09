@@ -16,14 +16,17 @@ const auth_service_1 = require("./auth.service");
 const jwt_strategy_1 = require("./jwt.strategy");
 const local_auth_guard_1 = require("./local-auth.guard");
 const user_entity_1 = require("../entities/user/user.entity");
+const permission_entity_1 = require("../entities/permission/permission.entity");
+const user_module_1 = require("../user/user.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            user_module_1.UserModule,
             passport_1.PassportModule,
-            typeorm_1.TypeOrmModule.forFeature([user_entity_1.User]),
+            typeorm_1.TypeOrmModule.forFeature([user_entity_1.User, permission_entity_1.Permission]),
             jwt_1.JwtModule.register({
                 secret: 'mysecretkey',
                 signOptions: { expiresIn: '12h' },

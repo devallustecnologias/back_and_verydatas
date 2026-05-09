@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Put, Param, Delete, Get } from '@nestjs/common';
+import { Controller, Post, Body, Put, Param, Delete, Get, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @ApiTags('Users')
 @Controller('users')
@@ -54,6 +55,7 @@ export class UserController {
         return this.userService.remove(uid);
     }
 
+    @UseGuards(JwtAuthGuard)
     @Get(':userId/permissions')
     @ApiOperation({ summary: 'Listar permissões do usuário' })
     getUserPermissions(@Param('userId') userId: string) {

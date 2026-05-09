@@ -1,5 +1,4 @@
-import { Company } from '../company/company.entity';
-import { User } from 'src/entities/user/user.entity';
+import { Wallet } from "./walled.entity";
 export declare enum LedgerType {
     CREDIT = "CREDIT",
     DEBIT = "DEBIT"
@@ -16,7 +15,6 @@ export declare class Ledger {
     description: string;
     origin?: LedgerOrigin;
     referenceId?: string;
-    company?: Company | null;
-    user?: User | null;
+    wallet: Wallet;
     createdAt: Date;
 }

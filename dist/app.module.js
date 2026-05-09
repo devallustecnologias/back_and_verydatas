@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
+const wallet_module_1 = require("./wallet/wallet.module");
 const ledger_module_1 = require("./ledger/ledger.module");
 const company_module_1 = require("./company/company.module");
 const permission_module_1 = require("./entities/permission/permission.module");
@@ -22,6 +23,7 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            wallet_module_1.WalletModule,
             ledger_module_1.LedgerModule,
             company_module_1.CompanyModule,
             permission_module_1.PermissionModule,

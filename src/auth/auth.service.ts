@@ -6,6 +6,9 @@ import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from '../entities/user/user.entity';
 import { OAuth2Client } from 'google-auth-library';
+import { Permission } from 'src/entities/permission/permission.entity';
+import { PermissionService } from 'src/entities/permission/permission.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +16,10 @@ export class AuthService {
   constructor(
     private jwtService: JwtService,
     @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(Permission)
+    private permissionsRepository: Repository<Permission>,
+
+    private readonly userService: UserService,
   ) { }
 
   async register(data: {
@@ -73,8 +80,15 @@ export class AuthService {
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    const userWithPermissions = await this.userRepository.findOne({
+      where: { uid: user.uid },
+      relations: ['permissions'],
+    });
 
-    const payload = { sub: user.uid, username: user.username };
+    const permissoes =  this.userService.getUserPermissions(user.uid);
+    console.log('User with permissions:', userWithPermissions);
+
+    const payload = { sub: user.uid, username: user.username, role: user.role, userWithPermissions };
     try {
       return { accessToken: this.jwtService.sign(payload) };
     } catch (error) {

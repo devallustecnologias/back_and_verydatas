@@ -1,10 +1,14 @@
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user/user.entity';
+import { Permission } from 'src/entities/permission/permission.entity';
+import { UserService } from 'src/user/user.service';
 export declare class AuthService {
     private jwtService;
     private userRepository;
-    constructor(jwtService: JwtService, userRepository: Repository<User>);
+    private permissionsRepository;
+    private readonly userService;
+    constructor(jwtService: JwtService, userRepository: Repository<User>, permissionsRepository: Repository<Permission>, userService: UserService);
     register(data: {
         username: string;
         email: string;

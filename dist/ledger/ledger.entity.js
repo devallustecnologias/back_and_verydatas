@@ -11,9 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Ledger = exports.LedgerOrigin = exports.LedgerType = void 0;
 const typeorm_1 = require("typeorm");
-const swagger_1 = require("@nestjs/swagger");
-const company_entity_1 = require("../company/company.entity");
-const user_entity_1 = require("../entities/user/user.entity");
+const walled_entity_1 = require("./walled.entity");
 var LedgerType;
 (function (LedgerType) {
     LedgerType["CREDIT"] = "CREDIT";
@@ -32,51 +30,39 @@ let Ledger = class Ledger {
     description;
     origin;
     referenceId;
-    company;
-    user;
+    wallet;
     createdAt;
 };
 exports.Ledger = Ledger;
 __decorate([
-    (0, swagger_1.ApiProperty)(),
     (0, typeorm_1.PrimaryGeneratedColumn)(),
     __metadata("design:type", Number)
 ], Ledger.prototype, "id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
     (0, typeorm_1.Column)('int'),
     __metadata("design:type", Number)
 ], Ledger.prototype, "amount", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: LedgerType }),
     (0, typeorm_1.Column)({ type: 'enum', enum: LedgerType }),
     __metadata("design:type", String)
 ], Ledger.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], Ledger.prototype, "description", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: LedgerOrigin, required: false }),
     (0, typeorm_1.Column)({ type: 'enum', enum: LedgerOrigin, nullable: true }),
     __metadata("design:type", String)
 ], Ledger.prototype, "origin", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ required: false }),
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Ledger.prototype, "referenceId", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => company_entity_1.Company, { nullable: true }),
-    __metadata("design:type", Object)
-], Ledger.prototype, "company", void 0);
+    (0, typeorm_1.ManyToOne)(() => walled_entity_1.Wallet),
+    __metadata("design:type", walled_entity_1.Wallet)
+], Ledger.prototype, "wallet", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { nullable: true }),
-    __metadata("design:type", Object)
-], Ledger.prototype, "user", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], Ledger.prototype, "createdAt", void 0);

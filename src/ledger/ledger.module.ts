@@ -6,9 +6,10 @@ import { Module } from '@nestjs/common';
 import { Ledger } from './ledger.entity';
 import { Company } from 'src/company/company.entity';
 import { User } from 'src/entities/user/user.entity';
+import { Wallet } from './walled.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Ledger, Company, User]),],
+  imports: [TypeOrmModule.forFeature([Ledger, Company, User, Wallet]),],
     controllers: [
         LedgerController,],
     providers: [

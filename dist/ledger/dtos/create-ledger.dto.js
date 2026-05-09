@@ -18,8 +18,7 @@ class CreateLedgerDto {
     description;
     origin;
     referenceId;
-    companyId;
-    userId;
+    walletId;
 }
 exports.CreateLedgerDto = CreateLedgerDto;
 __decorate([
@@ -51,18 +50,9 @@ __decorate([
 ], CreateLedgerDto.prototype, "referenceId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        required: false,
-        example: 1,
-        description: 'ID da empresa',
-    }),
-    __metadata("design:type", Number)
-], CreateLedgerDto.prototype, "companyId", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({
-        required: false,
-        example: 10,
-        description: 'ID do usuário',
+        required: true,
+        example: 'uuid-wallet-id',
     }),
     __metadata("design:type", String)
-], CreateLedgerDto.prototype, "userId", void 0);
+], CreateLedgerDto.prototype, "walletId", void 0);
 //# sourceMappingURL=create-ledger.dto.js.map

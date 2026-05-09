@@ -14,12 +14,13 @@ const common_1 = require("@nestjs/common");
 const ledger_entity_1 = require("./ledger.entity");
 const company_entity_1 = require("../company/company.entity");
 const user_entity_1 = require("../entities/user/user.entity");
+const walled_entity_1 = require("./walled.entity");
 let LedgerModule = class LedgerModule {
 };
 exports.LedgerModule = LedgerModule;
 exports.LedgerModule = LedgerModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([ledger_entity_1.Ledger, company_entity_1.Company, user_entity_1.User]),],
+        imports: [typeorm_1.TypeOrmModule.forFeature([ledger_entity_1.Ledger, company_entity_1.Company, user_entity_1.User, walled_entity_1.Wallet]),],
         controllers: [
             ledger_controller_1.LedgerController,
         ],

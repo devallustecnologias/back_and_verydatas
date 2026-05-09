@@ -40,6 +40,7 @@ let AuthController = class AuthController {
         }
     }
     me(req) {
+        console.log(req.user);
         return req.user;
     }
 };
@@ -101,6 +102,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get user information' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User information retrieved successfully', type: user_entity_1.User }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized: Missing or invalid token' }),

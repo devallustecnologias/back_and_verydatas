@@ -11,7 +11,7 @@ export class Company {
   name!: string;
 
   @Column({ unique: true })
-  domain!: string; 
+  domain!: string;
 
   @Column({ nullable: true })
   logoUrl?: string;
@@ -19,7 +19,7 @@ export class Company {
   @OneToMany(() => User, user => user.company)
   users!: User[];
 
-    @ManyToOne(() => Plan, { nullable: true })
-    @JoinColumn({ name: 'plan_id' })
-    plan?: Plan | null;
+  @ManyToOne(() => Plan, { nullable: true })
+  @JoinColumn({ name: 'plan_id' })
+  plan?: Plan | null;
 }

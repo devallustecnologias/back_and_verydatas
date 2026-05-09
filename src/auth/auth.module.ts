@@ -7,11 +7,15 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalAuthGuard } from './local-auth.guard';
 import { User } from '../entities/user/user.entity';
+import { PermissionModule } from 'src/entities/permission/permission.module';
+import { Permission } from 'src/entities/permission/permission.entity';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [
+    UserModule,
     PassportModule,
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Permission]),
     JwtModule.register({
       secret: 'mysecretkey',
       signOptions: { expiresIn: '12h' },

@@ -20,12 +20,18 @@ const bcrypt = require("bcrypt");
 const typeorm_2 = require("typeorm");
 const uuid_1 = require("uuid");
 const user_entity_1 = require("../entities/user/user.entity");
+const permission_entity_1 = require("../entities/permission/permission.entity");
+const user_service_1 = require("../user/user.service");
 let AuthService = class AuthService {
     jwtService;
     userRepository;
-    constructor(jwtService, userRepository) {
+    permissionsRepository;
+    userService;
+    constructor(jwtService, userRepository, permissionsRepository, userService) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.permissionsRepository = permissionsRepository;
+        this.userService = userService;
     }
     async register(data) {
         let hashedPassword;
@@ -76,7 +82,13 @@ let AuthService = class AuthService {
         if (!passwordMatch) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const payload = { sub: user.uid, username: user.username };
+        const userWithPermissions = await this.userRepository.findOne({
+            where: { uid: user.uid },
+            relations: ['permissions'],
+        });
+        const permissoes = this.userService.getUserPermissions(user.uid);
+        console.log('User with permissions:', userWithPermissions);
+        const payload = { sub: user.uid, username: user.username, role: user.role, userWithPermissions };
         try {
             return { accessToken: this.jwtService.sign(payload) };
         }
@@ -90,7 +102,10 @@ exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __param(1, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(2, (0, typeorm_1.InjectRepository)(permission_entity_1.Permission)),
     __metadata("design:paramtypes", [jwt_1.JwtService,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        user_service_1.UserService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

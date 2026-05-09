@@ -24,17 +24,9 @@ export class CreateLedgerDto {
   })
   referenceId?: string;
 
-  @ApiProperty({
-    required: false,
-    example: 1,
-    description: 'ID da empresa',
-  })
-  companyId?: number;
-
-  @ApiProperty({
-    required: false,
-    example: 10,
-    description: 'ID do usuário',
-  })
-  userId?: string;
+@ApiProperty({
+  required: true,
+  example: 'uuid-wallet-id',
+})
+walletId!: string;
 }
