@@ -82,13 +82,9 @@ let AuthService = class AuthService {
         if (!passwordMatch) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const userWithPermissions = await this.userRepository.findOne({
-            where: { uid: user.uid },
-            relations: ['permissions'],
-        });
-        const permissoes = this.userService.getUserPermissions(user.uid);
-        console.log('User with permissions:', userWithPermissions);
-        const payload = { sub: user.uid, username: user.username, role: user.role, userWithPermissions };
+        const permissoes = await this.userService.getUserPermissions(user.uid);
+        console.log('User with permissions:', permissoes);
+        const payload = { sub: user.uid, username: user.username, role: user.role, permissoes };
         try {
             return { accessToken: this.jwtService.sign(payload) };
         }

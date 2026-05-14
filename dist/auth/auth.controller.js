@@ -24,78 +24,82 @@ let AuthController = class AuthController {
         this.authService = authService;
     }
     async register(data) {
+        if (!data.username || !data.email || !data.password || !data.role) {
+            throw new common_1.BadRequestException("Missing required fields");
+        }
         try {
             return await this.authService.register(data);
         }
         catch (error) {
-            throw new common_1.BadRequestException("User already exists");
+            throw new common_1.BadRequestException(error || "User already exists or invalid data");
         }
     }
     async login(data) {
+        if (!data.email || !data.password) {
+            throw new common_1.BadRequestException("Email and password are required");
+        }
         try {
             return await this.authService.login(data.email, data.password);
         }
         catch (error) {
-            throw new common_1.BadRequestException("Invalid credentials");
+            console.log(error);
+            throw new common_1.UnauthorizedException("Invalid email or password");
         }
     }
     me(req) {
-        console.log(req.user);
         return req.user;
     }
 };
 exports.AuthController = AuthController;
 __decorate([
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new user' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'User created successfully', type: user_entity_1.User }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad Request: Validation errors or user already exists' }),
-    (0, swagger_1.ApiResponse)({ status: 401, description: 'Not authorized' }),
-    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal server error' }),
+    (0, swagger_1.ApiOperation)({ summary: "Register a new user" }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "User created", type: user_entity_1.User }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: "Bad request" }),
     (0, swagger_1.ApiBody)({
-        description: "Payload containing user information for registration.",
         schema: {
             type: "object",
+            required: ["username", "email", "password", "role"],
             properties: {
                 username: { type: "string", example: "Lucas" },
                 email: { type: "string", example: "lucas@email.com" },
-                password: { type: "string", example: "password123" },
+                password: { type: "string", example: "123456" },
                 role: {
                     type: "string",
                     enum: ["master", "empresa", "operador"],
-                    example: "operador"
-                }
-            }
-        }
+                    example: "operador",
+                },
+            },
+        },
     }),
-    (0, common_1.Post)('register'),
+    (0, common_1.Post)("register"),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "register", null);
 __decorate([
-    (0, swagger_1.ApiOperation)({ summary: 'Login' }),
+    (0, swagger_1.ApiOperation)({ summary: "Login user" }),
     (0, swagger_1.ApiResponse)({
-        status: 200, description: 'User logged in successfully', schema: {
+        status: 200,
+        description: "Login successful",
+        schema: {
             example: {
-                "access_token": "string"
-            }
-        }
+                access_token: "jwt_token_here",
+            },
+        },
     }),
-    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
-    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal server error' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: "Invalid credentials" }),
     (0, swagger_1.ApiBody)({
-        description: "Payload containing user information for authentication",
-        examples: {
-            "application/json": {
-                value: {
-                    email: "lucas@email.com",
-                    password: "password"
-                }
-            }
-        }
+        schema: {
+            type: "object",
+            required: ["email", "password"],
+            properties: {
+                email: { type: "string", example: "lucas@email.com" },
+                password: { type: "string", example: "123456" },
+            },
+        },
     }),
-    (0, common_1.Post)('login'),
+    (0, common_1.Post)("login"),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -103,12 +107,11 @@ __decorate([
 ], AuthController.prototype, "login", null);
 __decorate([
     (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Get user information' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'User information retrieved successfully', type: user_entity_1.User }),
-    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized: Missing or invalid token' }),
-    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal server error' }),
+    (0, swagger_1.ApiOperation)({ summary: "Get logged user" }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: user_entity_1.User }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: "Unauthorized" }),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    (0, common_1.Get)('me'),
+    (0, common_1.Get)("me"),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

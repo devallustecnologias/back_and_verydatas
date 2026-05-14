@@ -1,88 +1,124 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { User } from '../entities/user/user.entity';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+  BadRequestException,
+  UnauthorizedException,
+} from "@nestjs/common";
 
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+} from "@nestjs/swagger";
 
+import { AuthService } from "./auth.service";
+import { JwtAuthGuard } from "./jwt-auth.guard";
+import { User } from "../entities/user/user.entity";
 
 @Controller("auth")
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService
-  ) { }
+  constructor(private readonly authService: AuthService) {}
 
-  @ApiOperation({ summary: 'Create a new user' })
-  @ApiResponse({ status: 201, description: 'User created successfully', type: User })
-  @ApiResponse({ status: 400, description: 'Bad Request: Validation errors or user already exists' })
-  @ApiResponse({ status: 401, description: 'Not authorized' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
+  // =========================
+  // REGISTER
+  // =========================
+  @ApiOperation({ summary: "Register a new user" })
+  @ApiResponse({ status: 201, description: "User created", type: User })
+  @ApiResponse({ status: 400, description: "Bad request" })
   @ApiBody({
-    description: "Payload containing user information for registration.",
     schema: {
       type: "object",
+      required: ["username", "email", "password", "role"],
       properties: {
         username: { type: "string", example: "Lucas" },
         email: { type: "string", example: "lucas@email.com" },
-        password: { type: "string", example: "password123" },
+        password: { type: "string", example: "123456" },
         role: {
           type: "string",
           enum: ["master", "empresa", "operador"],
-          example: "operador"
-        }
-      }
-    }
+          example: "operador",
+        },
+      },
+    },
   })
-  @Post('register')
+  @Post("register")
   async register(
-    @Body() data: { username: string; email: string; password: string }
+    @Body()
+    data: {
+      username: string;
+      email: string;
+      password: string;
+      role: "master" | "empresa" | "operador";
+    }
   ): Promise<User> {
+    if (!data.username || !data.email || !data.password || !data.role) {
+      throw new BadRequestException("Missing required fields");
+    }
+
     try {
       return await this.authService.register(data);
     } catch (error) {
-      throw new BadRequestException("User already exists");
+      throw new BadRequestException(
+        error || "User already exists or invalid data"
+      );
     }
   }
 
-  @ApiOperation({ summary: 'Login' })
+  // =========================
+  // LOGIN
+  // =========================
+  @ApiOperation({ summary: "Login user" })
   @ApiResponse({
-    status: 200, description: 'User logged in successfully', schema: {
+    status: 200,
+    description: "Login successful",
+    schema: {
       example: {
-        "access_token": "string"
-      }
-    }
+        access_token: "jwt_token_here",
+      },
+    },
   })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiResponse({ status: 401, description: "Invalid credentials" })
   @ApiBody({
-    description: "Payload containing user information for authentication",
-    examples: {
-      "application/json": {
-        value: {
-          email: "lucas@email.com",
-          password: "password"
-        }
-      }
-    }
+    schema: {
+      type: "object",
+      required: ["email", "password"],
+      properties: {
+        email: { type: "string", example: "lucas@email.com" },
+        password: { type: "string", example: "123456" },
+      },
+    },
   })
-  @Post('login')
-  async login(@Body() data: { email: string; password: string }): Promise<any> {
+  @Post("login")
+  async login(
+    @Body() data: { email: string; password: string }
+  ): Promise<any> {
+    if (!data.email || !data.password) {
+      throw new BadRequestException("Email and password are required");
+    }
+
     try {
       return await this.authService.login(data.email, data.password);
     } catch (error) {
-      throw new BadRequestException("Invalid credentials");
+      console.log(error)
+      throw new UnauthorizedException("Invalid email or password");
     }
   }
 
+  // =========================
+  // ME
+  // =========================
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get user information' })
-  @ApiResponse({ status: 200, description: 'User information retrieved successfully', type: User })
-  @ApiResponse({ status: 401, description: 'Unauthorized: Missing or invalid token' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiOperation({ summary: "Get logged user" })
+  @ApiResponse({ status: 200, type: User })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   @UseGuards(JwtAuthGuard)
-  @Get('me')
+  @Get("me")
   me(@Req() req: any): User {
-    console.log(req.user)
     return req.user;
   }
 }
