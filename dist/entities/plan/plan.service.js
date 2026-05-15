@@ -28,8 +28,27 @@ let PlanService = class PlanService {
         this.permissionRepo = permissionRepo;
         this.userRepo = userRepo;
     }
-    async findAll() {
-        return this.planRepo.find();
+    async findAll(page = 1, limit = 10, search) {
+        const [data, total] = await this.planRepo.findAndCount({
+            where: search
+                ? {
+                    name: (0, typeorm_2.ILike)(`%${search}%`),
+                }
+                : {},
+            order: {
+                id: 'DESC',
+            },
+            skip: (page - 1) * limit,
+            take: limit,
+            relations: ['permissions'],
+        });
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
     async findOne(id) {
         const plan = await this.planRepo.findOne({ where: { id } });
@@ -71,9 +90,6 @@ let PlanService = class PlanService {
     }
     async remove(id) {
         const plan = await this.findOne(id);
-        if (plan.isSystem) {
-            throw new common_1.BadRequestException('Plano do sistema não pode ser removido');
-        }
         await this.planRepo.remove(plan);
     }
     async assignPlanToUser(userId, planId) {

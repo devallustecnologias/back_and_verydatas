@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { PlanService } from './plan.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { Plan } from './plan.entity';
@@ -11,24 +11,58 @@ export class PlanController {
 
   @Get()
   @ApiOperation({ summary: 'Listar planos' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    example: 'pro',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de planos',
     schema: {
-      example: [
-        {
-          id: 1,
-          name: 'Plano Básico',
-          isSystem: true,
-          permissions: [
-            { id: 1, key: 'dashboard', name: 'Dashboard' },
-          ],
-        },
-      ],
+      example: {
+        data: [
+          {
+            id: 1,
+            name: 'Plano Básico',
+            isSystem: true,
+            permissions: [
+              {
+                id: 1,
+                key: 'dashboard',
+                name: 'Dashboard',
+                creditCost: 0,
+              },
+            ],
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      },
     },
   })
-  findAll(): Promise<Plan[]> {
-    return this.planService.findAll();
+  findAll(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.planService.findAll(
+      Number(page) || 1,
+      Number(limit) || 10,
+      search,
+    );
   }
 
   @Get(':id')

@@ -23,8 +23,8 @@ let PlanController = class PlanController {
     constructor(planService) {
         this.planService = planService;
     }
-    findAll() {
-        return this.planService.findAll();
+    findAll(page, limit, search) {
+        return this.planService.findAll(Number(page) || 1, Number(limit) || 10, search);
     }
     findOne(id) {
         return this.planService.findOne(Number(id));
@@ -46,25 +46,54 @@ exports.PlanController = PlanController;
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Listar planos' }),
+    (0, swagger_1.ApiQuery)({
+        name: 'page',
+        required: false,
+        example: 1,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'limit',
+        required: false,
+        example: 10,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'search',
+        required: false,
+        example: 'pro',
+    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: 'Lista de planos',
         schema: {
-            example: [
-                {
-                    id: 1,
-                    name: 'Plano Básico',
-                    isSystem: true,
-                    permissions: [
-                        { id: 1, key: 'dashboard', name: 'Dashboard' },
-                    ],
-                },
-            ],
+            example: {
+                data: [
+                    {
+                        id: 1,
+                        name: 'Plano Básico',
+                        isSystem: true,
+                        permissions: [
+                            {
+                                id: 1,
+                                key: 'dashboard',
+                                name: 'Dashboard',
+                                creditCost: 0,
+                            },
+                        ],
+                    },
+                ],
+                total: 1,
+                page: 1,
+                limit: 10,
+                totalPages: 1,
+            },
         },
     }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
+    __metadata("design:paramtypes", [Number, Number, String]),
+    __metadata("design:returntype", void 0)
 ], PlanController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),

@@ -5,7 +5,13 @@ import { Plan } from './plan.entity';
 export declare class PlanController {
     private readonly planService;
     constructor(planService: PlanService);
-    findAll(): Promise<Plan[]>;
+    findAll(page?: number, limit?: number, search?: string): Promise<{
+        data: Plan[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
     findOne(id: number): Promise<Plan>;
     create(dto: CreatePlanDto): Promise<Plan>;
     update(id: number, dto: UpdatePlanDto): Promise<Plan>;
