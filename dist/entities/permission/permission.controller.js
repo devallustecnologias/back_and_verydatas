@@ -17,13 +17,14 @@ const common_1 = require("@nestjs/common");
 const permission_service_1 = require("./permission.service");
 const swagger_1 = require("@nestjs/swagger");
 const create_permission_dto_1 = require("./dto/create-permission.dto");
+const update_permission_dto_1 = require("./dto/update-permission.dto");
 let PermissionController = class PermissionController {
     permissionService;
     constructor(permissionService) {
         this.permissionService = permissionService;
     }
-    findAll() {
-        return this.permissionService.findAll();
+    findAll(page = 1, limit = 10, search) {
+        return this.permissionService.findAll(Number(page), Number(limit), search);
     }
     findOne(id) {
         return this.permissionService.findOne(Number(id));
@@ -34,25 +35,63 @@ let PermissionController = class PermissionController {
     remove(id) {
         return this.permissionService.remove(Number(id));
     }
+    update(id, dto) {
+        return this.permissionService.update(Number(id), dto);
+    }
 };
 exports.PermissionController = PermissionController;
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Listar todas as permissões' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Listar permissões com paginação',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'page',
+        required: false,
+        example: 1,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'limit',
+        required: false,
+        example: 10,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'search',
+        required: false,
+        example: 'dashboard',
+    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Lista de permissões',
+        description: 'Lista paginada de permissões',
         schema: {
-            example: [
-                { id: 1, key: 'dashboard', name: 'Dashboard' },
-                { id: 2, key: 'consulta.cpf', name: 'Consulta CPF' },
-                { id: 3, key: 'usuarios', name: 'Gerenciar usuários' },
-            ],
+            example: {
+                data: [
+                    {
+                        id: 1,
+                        key: 'dashboard',
+                        name: 'Dashboard',
+                        creditCost: 0,
+                    },
+                    {
+                        id: 2,
+                        key: 'consulta.cpf',
+                        name: 'Consulta CPF',
+                        creditCost: 10,
+                    },
+                ],
+                total: 2,
+                page: 1,
+                limit: 10,
+                totalPages: 1,
+            },
         },
     }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
+    __metadata("design:paramtypes", [Object, Object, String]),
+    __metadata("design:returntype", void 0)
 ], PermissionController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
@@ -104,6 +143,21 @@ __decorate([
     __metadata("design:paramtypes", [Number]),
     __metadata("design:returntype", void 0)
 ], PermissionController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Put)(':id'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Atualizar permissão',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Permissão atualizada',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, update_permission_dto_1.UpdatePermissionDto]),
+    __metadata("design:returntype", Promise)
+], PermissionController.prototype, "update", null);
 exports.PermissionController = PermissionController = __decorate([
     (0, common_1.Controller)('permissions'),
     __metadata("design:paramtypes", [permission_service_1.PermissionService])

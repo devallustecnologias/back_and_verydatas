@@ -22,9 +22,6 @@ let PermissionService = class PermissionService {
     constructor(permissionRepo) {
         this.permissionRepo = permissionRepo;
     }
-    async findAll() {
-        return this.permissionRepo.find();
-    }
     async findOne(id) {
         const permission = await this.permissionRepo.findOne({ where: { id } });
         if (!permission) {
@@ -45,6 +42,42 @@ let PermissionService = class PermissionService {
     async remove(id) {
         const permission = await this.findOne(id);
         await this.permissionRepo.remove(permission);
+    }
+    async findAll(page = 1, limit = 10, search) {
+        const [data, total] = await this.permissionRepo.findAndCount({
+            where: search
+                ? {
+                    name: (0, typeorm_2.ILike)(`%${search}%`),
+                }
+                : {},
+            order: {
+                id: 'DESC',
+            },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+    async update(id, dto) {
+        const permission = await this.findOne(id);
+        if (dto.key) {
+            const exists = await this.permissionRepo.findOne({
+                where: {
+                    key: dto.key,
+                },
+            });
+            if (exists && exists.id !== id) {
+                throw new common_1.BadRequestException('Permissão já existe');
+            }
+        }
+        Object.assign(permission, dto);
+        return this.permissionRepo.save(permission);
     }
 };
 exports.PermissionService = PermissionService;
