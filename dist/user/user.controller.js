@@ -24,6 +24,9 @@ let UserController = class UserController {
     constructor(userService) {
         this.userService = userService;
     }
+    findAll(page, limit, search) {
+        return this.userService.findAll(page, limit, search);
+    }
     createMaster(dto) {
         return this.userService.createMaster(dto);
     }
@@ -36,6 +39,9 @@ let UserController = class UserController {
     update(uid, dto) {
         return this.userService.update(uid, dto);
     }
+    findOne(uid) {
+        return this.userService.findOne(uid);
+    }
     remove(uid) {
         return this.userService.remove(uid);
     }
@@ -44,6 +50,21 @@ let UserController = class UserController {
     }
 };
 exports.UserController = UserController;
+__decorate([
+    (0, common_1.Get)("all"),
+    (0, swagger_1.ApiOperation)({ summary: 'Listar usuários com paginação' }),
+    (0, swagger_1.ApiQuery)({
+        name: 'search',
+        required: false,
+        type: String,
+    }),
+    __param(0, (0, common_1.Query)('page', new common_1.DefaultValuePipe(1), common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(10), common_1.ParseIntPipe)),
+    __param(2, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number, String]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)('master'),
     (0, swagger_1.ApiOperation)({ summary: 'Criar usuário MASTER' }),
@@ -89,6 +110,14 @@ __decorate([
     __metadata("design:paramtypes", [String, user_update_dto_1.UpdateUserDto]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "update", null);
+__decorate([
+    (0, common_1.Get)(':uid'),
+    (0, swagger_1.ApiOperation)({ summary: 'Buscar usuário por UID' }),
+    __param(0, (0, common_1.Param)('uid')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Delete)(':uid'),
     (0, swagger_1.ApiOperation)({ summary: 'Remover usuário' }),

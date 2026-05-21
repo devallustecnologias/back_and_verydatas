@@ -243,5 +243,79 @@ export class UserService {
 
         return user.plan?.permissions ?? [];
     }
+// user.service.ts
 
+async findAll(
+  page = 1,
+  limit = 10,
+  search?: string,
+) {
+  const query =
+    this.userRepo.createQueryBuilder(
+      'user',
+    );
+
+  query
+    .leftJoinAndSelect(
+      'user.company',
+      'company',
+    )
+    .leftJoinAndSelect(
+      'user.plan',
+      'plan',
+    );
+
+  // BUSCA POR NOME
+  if (search) {
+    query.andWhere(
+      'LOWER(user.username) LIKE LOWER(:search)',
+      {
+        search: `%${search}%`,
+      },
+    );
+  }
+
+  // PAGINAÇÃO
+  query
+    .orderBy(
+      'user.createdAt',
+      'DESC',
+    )
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  const [users, total] =
+    await query.getManyAndCount();
+
+  return {
+    data: users,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(
+      total / limit,
+    ),
+  };
+}
+async findOneById(uid: string): Promise<User> {
+  const user = await this.userRepo.findOne({
+    where: { uid },
+    relations: {
+      company: {
+        plan: {
+          permissions: true,
+        },
+      },
+      plan: {
+        permissions: true,
+      },
+    },
+  });
+
+  if (!user) {
+    throw new NotFoundException('Usuário não encontrado');
+  }
+
+  return user;
+}
 }

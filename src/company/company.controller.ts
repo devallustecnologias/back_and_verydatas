@@ -18,6 +18,39 @@ import { Company } from './company.entity';
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) { }
 
+  @Get('balances')
+  @ApiOperation({
+    summary: 'Lista empresas com saldo',
+    description:
+      'Retorna todas as empresas junto com o saldo da carteira.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de empresas com saldo',
+    schema: {
+      example: [
+        {
+          id: 1,
+          name: 'Empresa LTDA',
+          domain: 'empresa.com.br',
+          logoUrl: 'https://empresa.com/logo.png',
+          balance: 1500,
+        },
+        {
+          id: 2,
+          name: 'Outra Empresa',
+          domain: 'outra.com.br',
+          logoUrl: null,
+          balance: 300,
+        },
+      ],
+    },
+  })
+  async findCompaniesWithBalance() {
+    return this.companyService.findCompaniesWithBalance();
+  }
+
+
   @Get()
   @ApiOperation({ summary: 'Listar empresas' })
   @ApiResponse({

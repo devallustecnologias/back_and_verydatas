@@ -179,6 +179,48 @@ let UserService = class UserService {
         }
         return user.plan?.permissions ?? [];
     }
+    async findAll(page = 1, limit = 10, search) {
+        const query = this.userRepo.createQueryBuilder('user');
+        query
+            .leftJoinAndSelect('user.company', 'company')
+            .leftJoinAndSelect('user.plan', 'plan');
+        if (search) {
+            query.andWhere('LOWER(user.username) LIKE LOWER(:search)', {
+                search: `%${search}%`,
+            });
+        }
+        query
+            .orderBy('user.createdAt', 'DESC')
+            .skip((page - 1) * limit)
+            .take(limit);
+        const [users, total] = await query.getManyAndCount();
+        return {
+            data: users,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+    async findOneById(uid) {
+        const user = await this.userRepo.findOne({
+            where: { uid },
+            relations: {
+                company: {
+                    plan: {
+                        permissions: true,
+                    },
+                },
+                plan: {
+                    permissions: true,
+                },
+            },
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('Usuário não encontrado');
+        }
+        return user;
+    }
 };
 exports.UserService = UserService;
 exports.UserService = UserService = __decorate([

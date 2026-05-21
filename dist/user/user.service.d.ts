@@ -19,4 +19,12 @@ export declare class UserService {
     update(uid: string, dto: UpdateUserDto): Promise<User>;
     remove(uid: string): Promise<void>;
     getUserPermissions(userId: string): Promise<Permission[]>;
+    findAll(page?: number, limit?: number, search?: string): Promise<{
+        data: User[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
+    findOneById(uid: string): Promise<User>;
 }

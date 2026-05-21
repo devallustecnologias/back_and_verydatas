@@ -1,6 +1,6 @@
-import { Controller, Post, Body, Put, Param, Delete, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Put, Param, Delete, Get, UseGuards, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { UserService } from './user.service';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -9,6 +9,32 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 @Controller('users')
 export class UserController {
     constructor(private readonly userService: UserService) { }
+
+    @Get("all")
+    @ApiOperation({ summary: 'Listar usuários com paginação' })
+
+    @ApiQuery({
+        name: 'search',
+        required: false,
+        type: String,
+    })
+
+    findAll(
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe)
+        page: number,
+
+        @Query('limit', new DefaultValuePipe(10), ParseIntPipe)
+        limit: number,
+
+        @Query('search')
+        search?: string,
+    ) {
+        return this.userService.findAll(
+            page,
+            limit,
+            search,
+        );
+    }
 
     @Post('master')
     @ApiOperation({ summary: 'Criar usuário MASTER' })
@@ -49,6 +75,14 @@ export class UserController {
         return this.userService.update(uid, dto);
     }
 
+    @Get(':uid')
+    @ApiOperation({ summary: 'Buscar usuário por UID' })
+    findOne(
+        @Param('uid') uid: string,
+    ) {
+        return this.userService.findOne(uid);
+    }
+    
     @Delete(':uid')
     @ApiOperation({ summary: 'Remover usuário' })
     remove(@Param('uid') uid: string) {

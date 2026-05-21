@@ -5,9 +5,11 @@ import { CompanyService } from './company.service';
 import { Module } from '@nestjs/common';
 import { Company } from './company.entity';
 import { Plan } from 'src/entities/plan/plan.entity';
+import { Ledger } from 'src/ledger/ledger.entity';
+import { Wallet } from 'src/ledger/walled.entity';
 
 @Module({
-      imports: [TypeOrmModule.forFeature([Company, Plan]),],
+      imports: [TypeOrmModule.forFeature([Company, Plan, Ledger, Wallet]),],
     controllers: [
         CompanyController,],
     providers: [

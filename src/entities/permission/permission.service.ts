@@ -38,57 +38,57 @@ export class PermissionService {
         const permission = await this.findOne(id);
         await this.permissionRepo.remove(permission);
     }
-      async findAll(
-    page = 1,
-    limit = 10,
-    search?: string,
-  ) {
-    const [data, total] = await this.permissionRepo.findAndCount({
-      where: search
-        ? {
-            name: ILike(`%${search}%`),
-          }
-        : {},
-      order: {
-        id: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    async findAll(
+        page = 1,
+        limit = 10,
+        search?: string,
+    ) {
+        const [data, total] = await this.permissionRepo.findAndCount({
+            where: search
+                ? {
+                    name: ILike(`%${search}%`),
+                }
+                : {},
+            order: {
+                id: 'DESC',
+            },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
 
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  async update(
-  id: number,
-  dto: UpdatePermissionDto,
-): Promise<Permission> {
-  const permission = await this.findOne(id);
-
-  if (dto.key) {
-    const exists =
-      await this.permissionRepo.findOne({
-        where: {
-          key: dto.key,
-        },
-      });
-
-    if (exists && exists.id !== id) {
-      throw new BadRequestException(
-        'Permissão já existe',
-      );
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
-  }
 
-  Object.assign(permission, dto);
+    async update(
+        id: number,
+        dto: UpdatePermissionDto,
+    ): Promise<Permission> {
+        const permission = await this.findOne(id);
 
-  return this.permissionRepo.save(permission);
-}
+        if (dto.key) {
+            const exists =
+                await this.permissionRepo.findOne({
+                    where: {
+                        key: dto.key,
+                    },
+                });
+
+            if (exists && exists.id !== id) {
+                throw new BadRequestException(
+                    'Permissão já existe',
+                );
+            }
+        }
+
+        Object.assign(permission, dto);
+
+        return this.permissionRepo.save(permission);
+    }
 
 }

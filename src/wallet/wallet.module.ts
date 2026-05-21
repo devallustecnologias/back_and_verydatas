@@ -14,5 +14,6 @@ import { Wallet } from 'src/ledger/walled.entity';
         WalletController,],
     providers: [
         WalletService,],
+        exports:[WalletService],
 })
 export class WalletModule { }

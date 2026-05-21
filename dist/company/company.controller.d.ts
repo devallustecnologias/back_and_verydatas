@@ -5,6 +5,13 @@ import { Company } from './company.entity';
 export declare class CompanyController {
     private readonly companyService;
     constructor(companyService: CompanyService);
+    findCompaniesWithBalance(): Promise<{
+        id: number;
+        name: string;
+        domain: string;
+        logoUrl: string | undefined;
+        balance: number;
+    }[]>;
     findAll(): Promise<Company[]>;
     findOne(id: number): Promise<Company>;
     create(dto: CreateCompanyDto): Promise<Company>;

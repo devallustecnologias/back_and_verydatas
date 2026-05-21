@@ -28,6 +28,7 @@ exports.WalletModule = WalletModule = __decorate([
         providers: [
             wallet_service_1.WalletService,
         ],
+        exports: [wallet_service_1.WalletService],
     })
 ], WalletModule);
 //# sourceMappingURL=wallet.module.js.map

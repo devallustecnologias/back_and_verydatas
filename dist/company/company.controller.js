@@ -23,6 +23,9 @@ let CompanyController = class CompanyController {
     constructor(companyService) {
         this.companyService = companyService;
     }
+    async findCompaniesWithBalance() {
+        return this.companyService.findCompaniesWithBalance();
+    }
     findAll() {
         return this.companyService.findAll();
     }
@@ -43,6 +46,38 @@ let CompanyController = class CompanyController {
     }
 };
 exports.CompanyController = CompanyController;
+__decorate([
+    (0, common_1.Get)('balances'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Lista empresas com saldo',
+        description: 'Retorna todas as empresas junto com o saldo da carteira.',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Lista de empresas com saldo',
+        schema: {
+            example: [
+                {
+                    id: 1,
+                    name: 'Empresa LTDA',
+                    domain: 'empresa.com.br',
+                    logoUrl: 'https://empresa.com/logo.png',
+                    balance: 1500,
+                },
+                {
+                    id: 2,
+                    name: 'Outra Empresa',
+                    domain: 'outra.com.br',
+                    logoUrl: null,
+                    balance: 300,
+                },
+            ],
+        },
+    }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CompanyController.prototype, "findCompaniesWithBalance", null);
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Listar empresas' }),

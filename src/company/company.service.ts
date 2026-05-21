@@ -9,6 +9,8 @@ import { Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { Plan } from 'src/entities/plan/plan.entity';
+import { Wallet } from 'src/ledger/walled.entity';
+import { Ledger, LedgerType } from 'src/ledger/ledger.entity';
 
 @Injectable()
 export class CompanyService {
@@ -17,7 +19,63 @@ export class CompanyService {
     private readonly companyRepo: Repository<Company>,
     @InjectRepository(Plan)
     private readonly planRepo: Repository<Plan>,
-  ) {}
+    @InjectRepository(Wallet)
+    private readonly walletRepo: Repository<Wallet>,
+
+    @InjectRepository(Ledger)
+    private readonly ledgerRepo: Repository<Ledger>,
+  ) { }
+
+  async findCompaniesWithBalance() {
+    const companies = await this.companyRepo.find();
+
+    const result = await Promise.all(
+      companies.map(async (company) => {
+        const wallet = await this.walletRepo.findOne({
+          where: {
+            type: 'COMPANY',
+            companyId: company.id,
+          },
+        });
+
+        if (!wallet) {
+          return {
+            id: company.id,
+            name: company.name,
+            domain: company.domain,
+            logoUrl: company.logoUrl,
+            balance: 0,
+          };
+        }
+
+        const credit = await this.ledgerRepo
+          .createQueryBuilder('ledger')
+          .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+          .where('ledger.walletId = :walletId', { walletId: wallet.id })
+          .andWhere('ledger.type = :type', { type: LedgerType.CREDIT })
+          .getRawOne();
+
+        const debit = await this.ledgerRepo
+          .createQueryBuilder('ledger')
+          .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+          .where('ledger.walletId = :walletId', { walletId: wallet.id })
+          .andWhere('ledger.type = :type', { type: LedgerType.DEBIT })
+          .getRawOne();
+
+        const balance = Number(credit.total) - Number(debit.total);
+
+        return {
+          id: company.id,
+          name: company.name,
+          domain: company.domain,
+          logoUrl: company.logoUrl,
+          balance,
+        };
+      }),
+    );
+
+    return result;
+  }
 
   async findAll(): Promise<Company[]> {
     return this.companyRepo.find({
@@ -38,26 +96,26 @@ export class CompanyService {
     return company;
   }
 
-async create(dto: CreateCompanyDto): Promise<Company> {
-  const exists = await this.companyRepo.findOne({
-    where: { domain: dto.domain },
-  });
+  async create(dto: CreateCompanyDto): Promise<Company> {
+    const exists = await this.companyRepo.findOne({
+      where: { domain: dto.domain },
+    });
 
-  if (exists) {
-    throw new BadRequestException('Domínio já está em uso');
+    if (exists) {
+      throw new BadRequestException('Domínio já está em uso');
+    }
+
+    const plan = dto.planId
+      ? await this.planRepo.findOne({ where: { id: dto.planId } })
+      : null;
+
+    const company = this.companyRepo.create({
+      ...dto,
+      plan,
+    });
+
+    return this.companyRepo.save(company);
   }
-
-  const plan = dto.planId
-    ? await this.planRepo.findOne({ where: { id: dto.planId } })
-    : null;
-
-  const company = this.companyRepo.create({
-    ...dto,
-    plan,
-  });
-
-  return this.companyRepo.save(company);
-}
 
   async update(id: number, dto: UpdateCompanyDto): Promise<Company> {
     const company = await this.findOne(id);
@@ -89,19 +147,19 @@ async create(dto: CreateCompanyDto): Promise<Company> {
     await this.companyRepo.remove(company);
   }
   async getPermissions(companyId: number) {
-  const company = await this.companyRepo.findOne({
-    where: { id: companyId },
-    relations: {
-      plan: {
-        permissions: true,
+    const company = await this.companyRepo.findOne({
+      where: { id: companyId },
+      relations: {
+        plan: {
+          permissions: true,
+        },
       },
-    },
-  });
+    });
 
-  if (!company) {
-    throw new NotFoundException('Empresa não encontrada');
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    return company.plan?.permissions ?? [];
   }
-
-  return company.plan?.permissions ?? [];
-}
 }

@@ -18,12 +18,59 @@ const typeorm_1 = require("@nestjs/typeorm");
 const company_entity_1 = require("./company.entity");
 const typeorm_2 = require("typeorm");
 const plan_entity_1 = require("../entities/plan/plan.entity");
+const walled_entity_1 = require("../ledger/walled.entity");
+const ledger_entity_1 = require("../ledger/ledger.entity");
 let CompanyService = class CompanyService {
     companyRepo;
     planRepo;
-    constructor(companyRepo, planRepo) {
+    walletRepo;
+    ledgerRepo;
+    constructor(companyRepo, planRepo, walletRepo, ledgerRepo) {
         this.companyRepo = companyRepo;
         this.planRepo = planRepo;
+        this.walletRepo = walletRepo;
+        this.ledgerRepo = ledgerRepo;
+    }
+    async findCompaniesWithBalance() {
+        const companies = await this.companyRepo.find();
+        const result = await Promise.all(companies.map(async (company) => {
+            const wallet = await this.walletRepo.findOne({
+                where: {
+                    type: 'COMPANY',
+                    companyId: company.id,
+                },
+            });
+            if (!wallet) {
+                return {
+                    id: company.id,
+                    name: company.name,
+                    domain: company.domain,
+                    logoUrl: company.logoUrl,
+                    balance: 0,
+                };
+            }
+            const credit = await this.ledgerRepo
+                .createQueryBuilder('ledger')
+                .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+                .where('ledger.walletId = :walletId', { walletId: wallet.id })
+                .andWhere('ledger.type = :type', { type: ledger_entity_1.LedgerType.CREDIT })
+                .getRawOne();
+            const debit = await this.ledgerRepo
+                .createQueryBuilder('ledger')
+                .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+                .where('ledger.walletId = :walletId', { walletId: wallet.id })
+                .andWhere('ledger.type = :type', { type: ledger_entity_1.LedgerType.DEBIT })
+                .getRawOne();
+            const balance = Number(credit.total) - Number(debit.total);
+            return {
+                id: company.id,
+                name: company.name,
+                domain: company.domain,
+                logoUrl: company.logoUrl,
+                balance,
+            };
+        }));
+        return result;
     }
     async findAll() {
         return this.companyRepo.find({
@@ -96,7 +143,11 @@ exports.CompanyService = CompanyService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(company_entity_1.Company)),
     __param(1, (0, typeorm_1.InjectRepository)(plan_entity_1.Plan)),
+    __param(2, (0, typeorm_1.InjectRepository)(walled_entity_1.Wallet)),
+    __param(3, (0, typeorm_1.InjectRepository)(ledger_entity_1.Ledger)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository])
 ], CompanyService);
 //# sourceMappingURL=company.service.js.map
