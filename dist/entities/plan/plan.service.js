@@ -74,6 +74,7 @@ let PlanService = class PlanService {
         return this.planRepo.save(plan);
     }
     async update(id, dto) {
+        console.log(id, dto);
         const plan = await this.findOne(id);
         if (plan.isSystem) {
             throw new common_1.BadRequestException('Plano do sistema não pode ser editado');

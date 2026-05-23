@@ -118,19 +118,29 @@ export class CompanyService {
   }
 
   async update(id: number, dto: UpdateCompanyDto): Promise<Company> {
+    console.log(id, dto)
     const company = await this.findOne(id);
 
     const domainExists = await this.companyRepo.findOne({
       where: { domain: dto.domain },
     });
 
+    const planExists = await this.planRepo.findOne({
+      where: { id: dto.planId },
+    });
+
+      if (!planExists) {
+      throw new BadRequestException('Plano não existe na base de dados');
+    }
+
     if (domainExists && domainExists.id !== id) {
       throw new BadRequestException('Domínio já está em uso');
     }
-
+    console.log(company?.plan)
     company.name = dto.name;
     company.domain = dto.domain;
     company.logoUrl = dto.logoUrl;
+    company.plan = planExists
 
     return this.companyRepo.save(company);
   }

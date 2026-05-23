@@ -82,6 +82,7 @@ export class PlanService {
   }
 
   async update(id: number, dto: UpdatePlanDto): Promise<Plan> {
+    console.log(id, dto)
     const plan = await this.findOne(id);
 
     if (plan.isSystem) {

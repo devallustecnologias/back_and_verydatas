@@ -104,16 +104,25 @@ let CompanyService = class CompanyService {
         return this.companyRepo.save(company);
     }
     async update(id, dto) {
+        console.log(id, dto);
         const company = await this.findOne(id);
         const domainExists = await this.companyRepo.findOne({
             where: { domain: dto.domain },
         });
+        const planExists = await this.planRepo.findOne({
+            where: { id: dto.planId },
+        });
+        if (!planExists) {
+            throw new common_1.BadRequestException('Plano não existe na base de dados');
+        }
         if (domainExists && domainExists.id !== id) {
             throw new common_1.BadRequestException('Domínio já está em uso');
         }
+        console.log(company?.plan);
         company.name = dto.name;
         company.domain = dto.domain;
         company.logoUrl = dto.logoUrl;
+        company.plan = planExists;
         return this.companyRepo.save(company);
     }
     async remove(id) {
