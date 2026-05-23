@@ -15,6 +15,10 @@ export class Permission {
   @Column()
   name!: string;
 
+    @ApiProperty()
+  @Column()
+  slug!: string;
+
   @ApiProperty()
   @Column({ type: 'int', default: 0 })
   creditCost!: number; 
