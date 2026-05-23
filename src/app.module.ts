@@ -1,3 +1,4 @@
+import { CreditoModule } from './credito/credito.module';
 import { WalletModule } from './wallet/wallet.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { CompanyModule } from './company/company.module';
@@ -11,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
+    CreditoModule,
     WalletModule,
     LedgerModule,
     CompanyModule,

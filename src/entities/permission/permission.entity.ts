@@ -9,17 +9,17 @@ export class Permission {
 
   @ApiProperty()
   @Column({ unique: true })
-  key!: string; 
+  key!: string;
 
   @ApiProperty()
   @Column()
   name!: string;
 
-    @ApiProperty()
+  @ApiProperty()
   @Column()
   slug!: string;
 
   @ApiProperty()
   @Column({ type: 'int', default: 0 })
-  creditCost!: number; 
+  creditCost!: number;
 }

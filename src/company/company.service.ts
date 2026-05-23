@@ -5,12 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from './company.entity';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { Plan } from 'src/entities/plan/plan.entity';
 import { Wallet } from 'src/ledger/walled.entity';
 import { Ledger, LedgerType } from 'src/ledger/ledger.entity';
+import { User } from 'src/entities/user/user.entity';
 
 @Injectable()
 export class CompanyService {
@@ -24,12 +25,33 @@ export class CompanyService {
 
     @InjectRepository(Ledger)
     private readonly ledgerRepo: Repository<Ledger>,
+
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) { }
 
-  async findCompaniesWithBalance() {
-    const companies = await this.companyRepo.find();
+  async findCompaniesWithBalance(
+    page = 1,
+    limit = 10,
+    search?: string,
+  ) {
+    const where = search
+      ? {
+        name: ILike(`%${search}%`),
+      }
+      : {};
 
-    const result = await Promise.all(
+    const [companies, total] =
+      await this.companyRepo.findAndCount({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        order: {
+          id: 'DESC',
+        },
+      });
+
+    const data = await Promise.all(
       companies.map(async (company) => {
         const wallet = await this.walletRepo.findOne({
           where: {
@@ -43,38 +65,209 @@ export class CompanyService {
             id: company.id,
             name: company.name,
             domain: company.domain,
-            logoUrl: company.logoUrl,
-            balance: 0,
+            totalCredit: 0,
+            availableCredit: 0,
           };
         }
 
         const credit = await this.ledgerRepo
           .createQueryBuilder('ledger')
           .select('COALESCE(SUM(ledger.amount), 0)', 'total')
-          .where('ledger.walletId = :walletId', { walletId: wallet.id })
-          .andWhere('ledger.type = :type', { type: LedgerType.CREDIT })
+          .where('ledger.walletId = :walletId', {
+            walletId: wallet.id,
+          })
+          .andWhere('ledger.type = :type', {
+            type: LedgerType.CREDIT,
+          })
           .getRawOne();
 
         const debit = await this.ledgerRepo
           .createQueryBuilder('ledger')
           .select('COALESCE(SUM(ledger.amount), 0)', 'total')
-          .where('ledger.walletId = :walletId', { walletId: wallet.id })
-          .andWhere('ledger.type = :type', { type: LedgerType.DEBIT })
+          .where('ledger.walletId = :walletId', {
+            walletId: wallet.id,
+          })
+          .andWhere('ledger.type = :type', {
+            type: LedgerType.DEBIT,
+          })
           .getRawOne();
 
-        const balance = Number(credit.total) - Number(debit.total);
+        const totalCredits = Number(credit.total);
+        const totalDebits = Number(debit.total);
 
         return {
           id: company.id,
           name: company.name,
           domain: company.domain,
-          logoUrl: company.logoUrl,
-          balance,
+          totalCredit: totalCredits,
+          availableCredit: totalCredits - totalDebits,
         };
       }),
     );
 
-    return result;
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findCreditDetails(
+    userIdOrCompanyId: string,
+    historyPage = 1,
+    historyLimit = 10,
+  ) {
+    const isCompany = !isNaN(
+      Number(userIdOrCompanyId),
+    );
+
+    let company: Company | null = null;
+
+    let user: User | null = null;
+
+    if (isCompany) {
+      company = await this.companyRepo.findOne({
+        where: {
+          id: Number(userIdOrCompanyId),
+        },
+      });
+    } else {
+      user = await this.userRepo.findOne({
+        where: {
+          uid: userIdOrCompanyId,
+        },
+        relations: ['company'],
+      });
+    }
+
+    const wallet = await this.walletRepo.findOne({
+      where: isCompany
+        ? {
+          type: 'COMPANY',
+          companyId: Number(
+            userIdOrCompanyId,
+          ),
+        }
+        : {
+          type: 'USER',
+          userId: userIdOrCompanyId,
+        },
+    });
+
+    if (!wallet) {
+      return {
+        company,
+        user,
+
+        wallet: null,
+
+        totalCredit: 0,
+        availableCredit: 0,
+
+        history: {
+          data: [],
+          total: 0,
+          page: historyPage,
+          limit: historyLimit,
+          totalPages: 0,
+        },
+      };
+    }
+
+    const credit = await this.ledgerRepo
+      .createQueryBuilder('ledger')
+      .select(
+        'COALESCE(SUM(ledger.amount), 0)',
+        'total',
+      )
+      .where(
+        'ledger.walletId = :walletId',
+        {
+          walletId: wallet.id,
+        },
+      )
+      .andWhere(
+        'ledger.type = :type',
+        {
+          type: LedgerType.CREDIT,
+        },
+      )
+      .getRawOne();
+
+    const debit = await this.ledgerRepo
+      .createQueryBuilder('ledger')
+      .select(
+        'COALESCE(SUM(ledger.amount), 0)',
+        'total',
+      )
+      .where(
+        'ledger.walletId = :walletId',
+        {
+          walletId: wallet.id,
+        },
+      )
+      .andWhere(
+        'ledger.type = :type',
+        {
+          type: LedgerType.DEBIT,
+        },
+      )
+      .getRawOne();
+
+    const [history, historyTotal] =
+      await this.ledgerRepo.findAndCount({
+        where: {
+          wallet: {
+            id: wallet.id,
+          },
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+        skip:
+          (historyPage - 1) *
+          historyLimit,
+        take: historyLimit,
+      });
+
+    const totalCredits = Number(
+      credit.total,
+    );
+
+    const totalDebits = Number(
+      debit.total,
+    );
+
+    return {
+      company,
+      user,
+
+      wallet: {
+        id: wallet.id,
+        type: wallet.type,
+        companyId: wallet.companyId,
+        userId: wallet.userId,
+      },
+
+      totalCredit: totalCredits,
+
+      totalDebit: totalDebits,
+
+      availableCredit:
+        totalCredits - totalDebits,
+
+      history: {
+        data: history,
+        total: historyTotal,
+        page: historyPage,
+        limit: historyLimit,
+        totalPages: Math.ceil(
+          historyTotal / historyLimit,
+        ),
+      },
+    };
   }
 
   async findAll(): Promise<Company[]> {
@@ -129,7 +322,7 @@ export class CompanyService {
       where: { id: dto.planId },
     });
 
-      if (!planExists) {
+    if (!planExists) {
       throw new BadRequestException('Plano não existe na base de dados');
     }
 

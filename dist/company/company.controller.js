@@ -23,8 +23,11 @@ let CompanyController = class CompanyController {
     constructor(companyService) {
         this.companyService = companyService;
     }
-    async findCompaniesWithBalance() {
-        return this.companyService.findCompaniesWithBalance();
+    async findCompaniesWithBalance(page = '1', limit = '10', search) {
+        return this.companyService.findCompaniesWithBalance(Number(page), Number(limit), search);
+    }
+    findCreditDetails(userIdOrCompanyId, historyPage = '1', historyLimit = '10') {
+        return this.companyService.findCreditDetails(userIdOrCompanyId, Number(historyPage), Number(historyLimit));
     }
     findAll() {
         return this.companyService.findAll();
@@ -50,34 +53,98 @@ __decorate([
     (0, common_1.Get)('balances'),
     (0, swagger_1.ApiOperation)({
         summary: 'Lista empresas com saldo',
-        description: 'Retorna todas as empresas junto com o saldo da carteira.',
+        description: 'Retorna empresas paginadas junto com o saldo da carteira.',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'page',
+        required: false,
+        type: Number,
+        example: 1,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'limit',
+        required: false,
+        type: Number,
+        example: 10,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'search',
+        required: false,
+        type: String,
+        example: 'Microsoft',
     }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Lista de empresas com saldo',
-        schema: {
-            example: [
-                {
-                    id: 1,
-                    name: 'Empresa LTDA',
-                    domain: 'empresa.com.br',
-                    logoUrl: 'https://empresa.com/logo.png',
-                    balance: 1500,
-                },
-                {
-                    id: 2,
-                    name: 'Outra Empresa',
-                    domain: 'outra.com.br',
-                    logoUrl: null,
-                    balance: 300,
-                },
-            ],
-        },
+        description: 'Lista paginada de empresas com saldo',
     }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", Promise)
 ], CompanyController.prototype, "findCompaniesWithBalance", null);
+__decorate([
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Detalhes da carteira com saldo e histórico paginado',
+        schema: {
+            example: {
+                wallet: {
+                    id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
+                    type: 'COMPANY',
+                    companyId: 1,
+                    userId: null,
+                },
+                totalCredit: 5000,
+                totalDebit: 1200,
+                availableCredit: 3800,
+                history: {
+                    data: [
+                        {
+                            id: 12,
+                            amount: 1000,
+                            type: 'CREDIT',
+                            description: 'Crédito adicionado manualmente',
+                            origin: 'AJUSTE',
+                            referenceId: null,
+                            createdAt: '2026-05-23T18:20:00.000Z',
+                        },
+                        {
+                            id: 11,
+                            amount: 200,
+                            type: 'DEBIT',
+                            description: 'Consumo da operação XYZ',
+                            origin: 'CONSUMO',
+                            referenceId: 'OP-9281',
+                            createdAt: '2026-05-23T17:10:00.000Z',
+                        },
+                        {
+                            id: 10,
+                            amount: 500,
+                            type: 'CREDIT',
+                            description: 'Transferência recebida',
+                            origin: 'TRANSFER',
+                            referenceId: null,
+                            createdAt: '2026-05-23T15:40:00.000Z',
+                        },
+                    ],
+                    total: 3,
+                    page: 1,
+                    limit: 10,
+                    totalPages: 1,
+                },
+            },
+        },
+    }),
+    (0, common_1.Get)('historic/:userIdOrCompanyId'),
+    __param(0, (0, common_1.Param)('userIdOrCompanyId')),
+    __param(1, (0, common_1.Query)('historyPage')),
+    __param(2, (0, common_1.Query)('historyLimit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", void 0)
+], CompanyController.prototype, "findCreditDetails", null);
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Listar empresas' }),

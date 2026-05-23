@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const wallet_service_1 = require("./wallet.service");
 const wallet_dto_1 = require("./dto/wallet.dto");
 const tranfer_dto_1 = require("./dto/tranfer.dto");
+const add_credit_wallet_dto_1 = require("./dto/add.credit.wallet.dto");
 let WalletController = class WalletController {
     walletService;
     constructor(walletService) {
@@ -28,6 +29,9 @@ let WalletController = class WalletController {
     }
     transfer(dto) {
         return this.walletService.transfer(dto.fromWalletId, dto.toWalletId, dto.amount);
+    }
+    addCredits(dto) {
+        return this.walletService.addCredits(dto.walletId, dto.amount, dto.description);
     }
     getBalance(id) {
         return this.walletService.getBalance(id);
@@ -53,6 +57,14 @@ __decorate([
     __metadata("design:paramtypes", [tranfer_dto_1.TransferWalletDto]),
     __metadata("design:returntype", void 0)
 ], WalletController.prototype, "transfer", null);
+__decorate([
+    (0, common_1.Post)('add-credits'),
+    (0, swagger_1.ApiOperation)({ summary: 'Adicionar créditos manualmente em uma wallet' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [add_credit_wallet_dto_1.AddCreditsWalletDto]),
+    __metadata("design:returntype", void 0)
+], WalletController.prototype, "addCredits", null);
 __decorate([
     (0, common_1.Get)(':id/balance'),
     (0, swagger_1.ApiOperation)({ summary: 'Consultar saldo da wallet' }),

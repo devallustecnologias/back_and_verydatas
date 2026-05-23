@@ -10,12 +10,13 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
 import { CreateWalletDto } from './dto/wallet.dto';
 import { TransferWalletDto } from './dto/tranfer.dto';
+import { AddCreditsWalletDto } from './dto/add.credit.wallet.dto';
 
 
 @ApiTags('Wallets')
 @Controller('wallets')
 export class WalletController {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(private readonly walletService: WalletService) { }
 
   // criar wallet
   @Post()
@@ -35,6 +36,15 @@ export class WalletController {
     );
   }
 
+  @Post('add-credits')
+  @ApiOperation({ summary: 'Adicionar créditos manualmente em uma wallet' })
+  addCredits(@Body() dto: AddCreditsWalletDto) {
+    return this.walletService.addCredits(
+      dto.walletId,
+      dto.amount,
+      dto.description,
+    );
+  }
   //  saldo
   @Get(':id/balance')
   @ApiOperation({ summary: 'Consultar saldo da wallet' })

@@ -31,6 +31,34 @@ let WalletService = class WalletService {
         this.userRepo = userRepo;
         this.dataSource = dataSource;
     }
+    async addCredits(walletId, amount, description) {
+        if (amount <= 0) {
+            throw new common_1.BadRequestException('Valor inválido');
+        }
+        return this.dataSource.transaction(async (manager) => {
+            const walletRepo = manager.getRepository(walled_entity_1.Wallet);
+            const ledgerRepo = manager.getRepository(ledger_entity_1.Ledger);
+            const wallet = await walletRepo.findOneBy({
+                id: walletId,
+            });
+            if (!wallet) {
+                throw new common_1.NotFoundException('Wallet não encontrada');
+            }
+            const ledger = await ledgerRepo.save({
+                wallet,
+                amount,
+                type: ledger_entity_1.LedgerType.CREDIT,
+                origin: ledger_entity_1.LedgerOrigin.AJUSTE,
+                description: description || 'Crédito adicionado manualmente',
+            });
+            return {
+                success: true,
+                walletId,
+                amount,
+                ledger,
+            };
+        });
+    }
     async createWallet(dto) {
         let company = null;
         let user = null;

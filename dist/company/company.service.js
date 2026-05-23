@@ -20,20 +20,35 @@ const typeorm_2 = require("typeorm");
 const plan_entity_1 = require("../entities/plan/plan.entity");
 const walled_entity_1 = require("../ledger/walled.entity");
 const ledger_entity_1 = require("../ledger/ledger.entity");
+const user_entity_1 = require("../entities/user/user.entity");
 let CompanyService = class CompanyService {
     companyRepo;
     planRepo;
     walletRepo;
     ledgerRepo;
-    constructor(companyRepo, planRepo, walletRepo, ledgerRepo) {
+    userRepo;
+    constructor(companyRepo, planRepo, walletRepo, ledgerRepo, userRepo) {
         this.companyRepo = companyRepo;
         this.planRepo = planRepo;
         this.walletRepo = walletRepo;
         this.ledgerRepo = ledgerRepo;
+        this.userRepo = userRepo;
     }
-    async findCompaniesWithBalance() {
-        const companies = await this.companyRepo.find();
-        const result = await Promise.all(companies.map(async (company) => {
+    async findCompaniesWithBalance(page = 1, limit = 10, search) {
+        const where = search
+            ? {
+                name: (0, typeorm_2.ILike)(`%${search}%`),
+            }
+            : {};
+        const [companies, total] = await this.companyRepo.findAndCount({
+            where,
+            skip: (page - 1) * limit,
+            take: limit,
+            order: {
+                id: 'DESC',
+            },
+        });
+        const data = await Promise.all(companies.map(async (company) => {
             const wallet = await this.walletRepo.findOne({
                 where: {
                     type: 'COMPANY',
@@ -45,32 +60,149 @@ let CompanyService = class CompanyService {
                     id: company.id,
                     name: company.name,
                     domain: company.domain,
-                    logoUrl: company.logoUrl,
-                    balance: 0,
+                    totalCredit: 0,
+                    availableCredit: 0,
                 };
             }
             const credit = await this.ledgerRepo
                 .createQueryBuilder('ledger')
                 .select('COALESCE(SUM(ledger.amount), 0)', 'total')
-                .where('ledger.walletId = :walletId', { walletId: wallet.id })
-                .andWhere('ledger.type = :type', { type: ledger_entity_1.LedgerType.CREDIT })
+                .where('ledger.walletId = :walletId', {
+                walletId: wallet.id,
+            })
+                .andWhere('ledger.type = :type', {
+                type: ledger_entity_1.LedgerType.CREDIT,
+            })
                 .getRawOne();
             const debit = await this.ledgerRepo
                 .createQueryBuilder('ledger')
                 .select('COALESCE(SUM(ledger.amount), 0)', 'total')
-                .where('ledger.walletId = :walletId', { walletId: wallet.id })
-                .andWhere('ledger.type = :type', { type: ledger_entity_1.LedgerType.DEBIT })
+                .where('ledger.walletId = :walletId', {
+                walletId: wallet.id,
+            })
+                .andWhere('ledger.type = :type', {
+                type: ledger_entity_1.LedgerType.DEBIT,
+            })
                 .getRawOne();
-            const balance = Number(credit.total) - Number(debit.total);
+            const totalCredits = Number(credit.total);
+            const totalDebits = Number(debit.total);
             return {
                 id: company.id,
                 name: company.name,
                 domain: company.domain,
-                logoUrl: company.logoUrl,
-                balance,
+                totalCredit: totalCredits,
+                availableCredit: totalCredits - totalDebits,
             };
         }));
-        return result;
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+    async findCreditDetails(userIdOrCompanyId, historyPage = 1, historyLimit = 10) {
+        const isCompany = !isNaN(Number(userIdOrCompanyId));
+        let company = null;
+        let user = null;
+        if (isCompany) {
+            company = await this.companyRepo.findOne({
+                where: {
+                    id: Number(userIdOrCompanyId),
+                },
+            });
+        }
+        else {
+            user = await this.userRepo.findOne({
+                where: {
+                    uid: userIdOrCompanyId,
+                },
+                relations: ['company'],
+            });
+        }
+        const wallet = await this.walletRepo.findOne({
+            where: isCompany
+                ? {
+                    type: 'COMPANY',
+                    companyId: Number(userIdOrCompanyId),
+                }
+                : {
+                    type: 'USER',
+                    userId: userIdOrCompanyId,
+                },
+        });
+        if (!wallet) {
+            return {
+                company,
+                user,
+                wallet: null,
+                totalCredit: 0,
+                availableCredit: 0,
+                history: {
+                    data: [],
+                    total: 0,
+                    page: historyPage,
+                    limit: historyLimit,
+                    totalPages: 0,
+                },
+            };
+        }
+        const credit = await this.ledgerRepo
+            .createQueryBuilder('ledger')
+            .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+            .where('ledger.walletId = :walletId', {
+            walletId: wallet.id,
+        })
+            .andWhere('ledger.type = :type', {
+            type: ledger_entity_1.LedgerType.CREDIT,
+        })
+            .getRawOne();
+        const debit = await this.ledgerRepo
+            .createQueryBuilder('ledger')
+            .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+            .where('ledger.walletId = :walletId', {
+            walletId: wallet.id,
+        })
+            .andWhere('ledger.type = :type', {
+            type: ledger_entity_1.LedgerType.DEBIT,
+        })
+            .getRawOne();
+        const [history, historyTotal] = await this.ledgerRepo.findAndCount({
+            where: {
+                wallet: {
+                    id: wallet.id,
+                },
+            },
+            order: {
+                createdAt: 'DESC',
+            },
+            skip: (historyPage - 1) *
+                historyLimit,
+            take: historyLimit,
+        });
+        const totalCredits = Number(credit.total);
+        const totalDebits = Number(debit.total);
+        return {
+            company,
+            user,
+            wallet: {
+                id: wallet.id,
+                type: wallet.type,
+                companyId: wallet.companyId,
+                userId: wallet.userId,
+            },
+            totalCredit: totalCredits,
+            totalDebit: totalDebits,
+            availableCredit: totalCredits - totalDebits,
+            history: {
+                data: history,
+                total: historyTotal,
+                page: historyPage,
+                limit: historyLimit,
+                totalPages: Math.ceil(historyTotal / historyLimit),
+            },
+        };
     }
     async findAll() {
         return this.companyRepo.find({
@@ -154,7 +286,9 @@ exports.CompanyService = CompanyService = __decorate([
     __param(1, (0, typeorm_1.InjectRepository)(plan_entity_1.Plan)),
     __param(2, (0, typeorm_1.InjectRepository)(walled_entity_1.Wallet)),
     __param(3, (0, typeorm_1.InjectRepository)(ledger_entity_1.Ledger)),
+    __param(4, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])

@@ -25,7 +25,46 @@ export class WalletService {
     private readonly userRepo: Repository<User>,
 
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
+
+  async addCredits(
+    walletId: string,
+    amount: number,
+    description?: string,
+  ) {
+    if (amount <= 0) {
+      throw new BadRequestException('Valor inválido');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const walletRepo = manager.getRepository(Wallet);
+      const ledgerRepo = manager.getRepository(Ledger);
+
+      const wallet = await walletRepo.findOneBy({
+        id: walletId,
+      });
+
+      if (!wallet) {
+        throw new NotFoundException('Wallet não encontrada');
+      }
+
+      const ledger = await ledgerRepo.save({
+        wallet,
+        amount,
+        type: LedgerType.CREDIT,
+        origin: LedgerOrigin.AJUSTE,
+        description:
+          description || 'Crédito adicionado manualmente',
+      });
+
+      return {
+        success: true,
+        walletId,
+        amount,
+        ledger,
+      };
+    });
+  }
 
   async createWallet(dto: CreateWalletDto): Promise<Wallet> {
     let company: Company | null = null;
@@ -46,6 +85,8 @@ export class WalletService {
         throw new BadRequestException('Empresa já possui wallet');
       }
     }
+
+
 
     if (dto.userId) {
       user = await this.userRepo.findOneBy({ uid: dto.userId });
