@@ -19,6 +19,69 @@ import { Company } from './company.entity';
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) { }
 
+  @Get('user/balances')
+  @ApiOperation({
+    summary: 'Lista usuários com saldo',
+    description:
+      'Retorna usuários paginados junto com o saldo da carteira.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    example: 'Lucas',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de usuários com saldo',
+    schema: {
+      example: {
+        data: [
+          {
+            uid: 'd4f64555-1eb2-457f-a9b7-bf56711ce65f',
+            username: 'Lucas',
+            email: 'lucas@email.com',
+            role: 'operador',
+            company: {
+              id: 1,
+              name: 'Minha Empresa LTDA',
+              domain: 'minhaempresa',
+            },
+            totalCredit: 1000,
+            availableCredit: 750,
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      },
+    },
+  })
+  async findUsersWithBalance(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+  ) {
+    return this.companyService.findUsersWithBalance(
+      Number(page),
+      Number(limit),
+      search,
+    );
+  }
+
   @Get('balances')
   @ApiOperation({
     summary: 'Lista empresas com saldo',
@@ -59,24 +122,38 @@ export class CompanyController {
     );
   }
 
-  @ApiResponse({
+  @Get('historic-user/:userId')
+@ApiOperation({
+  summary: 'Buscar histórico de créditos do usuário',
+})
+@ApiResponse({
   status: 200,
   description:
-    'Detalhes da carteira com saldo e histórico paginado',
+    'Detalhes da carteira do usuário com saldo e histórico paginado',
   schema: {
     example: {
-      wallet: {
-        id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
-        type: 'COMPANY',
-        companyId: 1,
-        userId: null,
+      user: {
+        uid: '6e545637-9adf-4235-abda-0465765b8ea2',
+        username: 'afranio',
+        email: 'afranio@gmail.com',
+        role: 'operador',
+        company: {
+          id: 1,
+          name: 'Minha Empresa LTDA',
+          domain: 'minhaempresa',
+        },
       },
 
-      totalCredit: 5000,
+      wallet: {
+        id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
+        type: 'USER',
+        companyId: null,
+        userId: '6e545637-9adf-4235-abda-0465765b8ea2',
+      },
 
-      totalDebit: 1200,
-
-      availableCredit: 3800,
+      totalCredit: 1000,
+      totalDebit: 200,
+      availableCredit: 800,
 
       history: {
         data: [
@@ -84,60 +161,110 @@ export class CompanyController {
             id: 12,
             amount: 1000,
             type: 'CREDIT',
-            description:
-              'Crédito adicionado manualmente',
-            origin: 'AJUSTE',
-            referenceId: null,
-            createdAt:
-              '2026-05-23T18:20:00.000Z',
-          },
-          {
-            id: 11,
-            amount: 200,
-            type: 'DEBIT',
-            description:
-              'Consumo da operação XYZ',
-            origin: 'CONSUMO',
-            referenceId: 'OP-9281',
-            createdAt:
-              '2026-05-23T17:10:00.000Z',
-          },
-          {
-            id: 10,
-            amount: 500,
-            type: 'CREDIT',
-            description:
-              'Transferência recebida',
+            description: 'Crédito recebido da empresa',
             origin: 'TRANSFER',
             referenceId: null,
-            createdAt:
-              '2026-05-23T15:40:00.000Z',
+            createdAt: '2026-05-23T18:20:00.000Z',
           },
         ],
-
-        total: 3,
-
+        total: 1,
         page: 1,
-
         limit: 10,
-
         totalPages: 1,
       },
     },
   },
 })
-  @Get('historic/:userIdOrCompanyId')
-findCreditDetails(
-  @Param('userIdOrCompanyId') userIdOrCompanyId: string,
+findUserCreditDetails(
+  @Param('userId') userId: string,
   @Query('historyPage') historyPage = '1',
   @Query('historyLimit') historyLimit = '10',
 ) {
-  return this.companyService.findCreditDetails(
-    userIdOrCompanyId,
+  return this.companyService.findUserCreditDetails(
+    userId,
     Number(historyPage),
     Number(historyLimit),
   );
 }
+
+  @Get('historic-company/:companyId')
+  @ApiOperation({
+    summary:
+      'Buscar histórico de créditos da empresa',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Detalhes da carteira da empresa com saldo e histórico paginado',
+    schema: {
+      example: {
+        company: {
+          id: 1,
+          name: 'Minha Empresa LTDA',
+          domain: 'minhaempresa',
+        },
+
+        wallet: {
+          id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
+          type: 'COMPANY',
+          companyId: 1,
+          userId: null,
+        },
+
+        totalCredit: 5000,
+
+        totalDebit: 1200,
+
+        availableCredit: 3800,
+
+        history: {
+          data: [
+            {
+              id: 12,
+              amount: 1000,
+              type: 'CREDIT',
+              description:
+                'Crédito adicionado manualmente',
+              origin: 'AJUSTE',
+              referenceId: null,
+              createdAt:
+                '2026-05-23T18:20:00.000Z',
+            },
+            {
+              id: 11,
+              amount: 200,
+              type: 'DEBIT',
+              description:
+                'Consumo da operação XYZ',
+              origin: 'CONSUMO',
+              referenceId: 'OP-9281',
+              createdAt:
+                '2026-05-23T17:10:00.000Z',
+            },
+          ],
+
+          total: 2,
+
+          page: 1,
+
+          limit: 10,
+
+          totalPages: 1,
+        },
+      },
+    },
+  })
+  findCreditDetails(
+    @Param('companyId') companyId: string,
+    @Query('historyPage') historyPage = '1',
+    @Query('historyLimit') historyLimit = '10',
+  ) {
+    return this.companyService.findCreditDetailsCompany(
+      companyId,
+      Number(historyPage),
+      Number(historyLimit),
+    );
+  }
 
   @Get()
   @ApiOperation({ summary: 'Listar empresas' })

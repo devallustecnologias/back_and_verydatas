@@ -29,16 +29,19 @@ let CreditoService = class CreditoService {
         if (amount <= 0) {
             throw new common_1.BadRequestException('Valor inválido');
         }
-        let wallet = await this.walletRepo.findOneBy({
-            userId: userIdOrCompanyId,
-        });
-        if (!wallet) {
+        const isCompany = !isNaN(Number(userIdOrCompanyId));
+        let wallet = null;
+        if (isCompany) {
             wallet = await this.walletRepo.findOneBy({
                 companyId: Number(userIdOrCompanyId),
             });
         }
+        else {
+            wallet = await this.walletRepo.findOneBy({
+                userId: userIdOrCompanyId,
+            });
+        }
         if (!wallet) {
-            const isCompany = !isNaN(Number(userIdOrCompanyId));
             wallet = this.walletRepo.create({
                 type: isCompany ? 'COMPANY' : 'USER',
                 companyId: isCompany

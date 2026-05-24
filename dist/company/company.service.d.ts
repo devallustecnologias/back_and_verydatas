@@ -26,11 +26,30 @@ export declare class CompanyService {
         limit: number;
         totalPages: number;
     }>;
-    findCreditDetails(userIdOrCompanyId: string, historyPage?: number, historyLimit?: number): Promise<{
+    findUsersWithBalance(page?: number, limit?: number, search?: string): Promise<{
+        data: {
+            uid: string;
+            username: string;
+            email: string;
+            role: import("src/entities/user/user.entity").UserRole;
+            company: {
+                id: number;
+                name: string;
+                domain: string;
+            } | null;
+            totalCredit: number;
+            availableCredit: number;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
+    findCreditDetailsCompany(companyId: string, historyPage?: number, historyLimit?: number): Promise<{
         company: Company | null;
-        user: User | null;
         wallet: null;
         totalCredit: number;
+        totalDebit: number;
         availableCredit: number;
         history: {
             data: never[];
@@ -39,9 +58,39 @@ export declare class CompanyService {
             limit: number;
             totalPages: number;
         };
-        totalDebit?: undefined;
     } | {
         company: Company | null;
+        wallet: {
+            id: string;
+            type: "COMPANY" | "USER";
+            companyId: number | undefined;
+            userId: string | undefined;
+        };
+        totalCredit: number;
+        totalDebit: number;
+        availableCredit: number;
+        history: {
+            data: Ledger[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }>;
+    findUserCreditDetails(userId: string, historyPage?: number, historyLimit?: number): Promise<{
+        user: User | null;
+        wallet: null;
+        totalCredit: number;
+        totalDebit: number;
+        availableCredit: number;
+        history: {
+            data: never[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    } | {
         user: User | null;
         wallet: {
             id: string;

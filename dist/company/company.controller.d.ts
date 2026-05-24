@@ -5,6 +5,25 @@ import { Company } from './company.entity';
 export declare class CompanyController {
     private readonly companyService;
     constructor(companyService: CompanyService);
+    findUsersWithBalance(page?: string, limit?: string, search?: string): Promise<{
+        data: {
+            uid: string;
+            username: string;
+            email: string;
+            role: import("../entities/user/user.entity").UserRole;
+            company: {
+                id: number;
+                name: string;
+                domain: string;
+            } | null;
+            totalCredit: number;
+            availableCredit: number;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
     findCompaniesWithBalance(page?: string, limit?: string, search?: string): Promise<{
         data: {
             id: number;
@@ -18,11 +37,11 @@ export declare class CompanyController {
         limit: number;
         totalPages: number;
     }>;
-    findCreditDetails(userIdOrCompanyId: string, historyPage?: string, historyLimit?: string): Promise<{
-        company: Company | null;
+    findUserCreditDetails(userId: string, historyPage?: string, historyLimit?: string): Promise<{
         user: import("../entities/user/user.entity").User | null;
         wallet: null;
         totalCredit: number;
+        totalDebit: number;
         availableCredit: number;
         history: {
             data: never[];
@@ -31,10 +50,40 @@ export declare class CompanyController {
             limit: number;
             totalPages: number;
         };
-        totalDebit?: undefined;
+    } | {
+        user: import("../entities/user/user.entity").User | null;
+        wallet: {
+            id: string;
+            type: "COMPANY" | "USER";
+            companyId: number | undefined;
+            userId: string | undefined;
+        };
+        totalCredit: number;
+        totalDebit: number;
+        availableCredit: number;
+        history: {
+            data: import("../ledger/ledger.entity").Ledger[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }>;
+    findCreditDetails(companyId: string, historyPage?: string, historyLimit?: string): Promise<{
+        company: Company | null;
+        wallet: null;
+        totalCredit: number;
+        totalDebit: number;
+        availableCredit: number;
+        history: {
+            data: never[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     } | {
         company: Company | null;
-        user: import("../entities/user/user.entity").User | null;
         wallet: {
             id: string;
             type: "COMPANY" | "USER";

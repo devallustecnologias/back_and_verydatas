@@ -23,11 +23,17 @@ let CompanyController = class CompanyController {
     constructor(companyService) {
         this.companyService = companyService;
     }
+    async findUsersWithBalance(page = '1', limit = '10', search) {
+        return this.companyService.findUsersWithBalance(Number(page), Number(limit), search);
+    }
     async findCompaniesWithBalance(page = '1', limit = '10', search) {
         return this.companyService.findCompaniesWithBalance(Number(page), Number(limit), search);
     }
-    findCreditDetails(userIdOrCompanyId, historyPage = '1', historyLimit = '10') {
-        return this.companyService.findCreditDetails(userIdOrCompanyId, Number(historyPage), Number(historyLimit));
+    findUserCreditDetails(userId, historyPage = '1', historyLimit = '10') {
+        return this.companyService.findUserCreditDetails(userId, Number(historyPage), Number(historyLimit));
+    }
+    findCreditDetails(companyId, historyPage = '1', historyLimit = '10') {
+        return this.companyService.findCreditDetailsCompany(companyId, Number(historyPage), Number(historyLimit));
     }
     findAll() {
         return this.companyService.findAll();
@@ -49,6 +55,64 @@ let CompanyController = class CompanyController {
     }
 };
 exports.CompanyController = CompanyController;
+__decorate([
+    (0, common_1.Get)('user/balances'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Lista usuários com saldo',
+        description: 'Retorna usuários paginados junto com o saldo da carteira.',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'page',
+        required: false,
+        type: Number,
+        example: 1,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'limit',
+        required: false,
+        type: Number,
+        example: 10,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'search',
+        required: false,
+        type: String,
+        example: 'Lucas',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Lista paginada de usuários com saldo',
+        schema: {
+            example: {
+                data: [
+                    {
+                        uid: 'd4f64555-1eb2-457f-a9b7-bf56711ce65f',
+                        username: 'Lucas',
+                        email: 'lucas@email.com',
+                        role: 'operador',
+                        company: {
+                            id: 1,
+                            name: 'Minha Empresa LTDA',
+                            domain: 'minhaempresa',
+                        },
+                        totalCredit: 1000,
+                        availableCredit: 750,
+                    },
+                ],
+                total: 1,
+                page: 1,
+                limit: 10,
+                totalPages: 1,
+            },
+        },
+    }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, String]),
+    __metadata("design:returntype", Promise)
+], CompanyController.prototype, "findUsersWithBalance", null);
 __decorate([
     (0, common_1.Get)('balances'),
     (0, swagger_1.ApiOperation)({
@@ -85,11 +149,77 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CompanyController.prototype, "findCompaniesWithBalance", null);
 __decorate([
+    (0, common_1.Get)('historic-user/:userId'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Buscar histórico de créditos do usuário',
+    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Detalhes da carteira com saldo e histórico paginado',
+        description: 'Detalhes da carteira do usuário com saldo e histórico paginado',
         schema: {
             example: {
+                user: {
+                    uid: '6e545637-9adf-4235-abda-0465765b8ea2',
+                    username: 'afranio',
+                    email: 'afranio@gmail.com',
+                    role: 'operador',
+                    company: {
+                        id: 1,
+                        name: 'Minha Empresa LTDA',
+                        domain: 'minhaempresa',
+                    },
+                },
+                wallet: {
+                    id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
+                    type: 'USER',
+                    companyId: null,
+                    userId: '6e545637-9adf-4235-abda-0465765b8ea2',
+                },
+                totalCredit: 1000,
+                totalDebit: 200,
+                availableCredit: 800,
+                history: {
+                    data: [
+                        {
+                            id: 12,
+                            amount: 1000,
+                            type: 'CREDIT',
+                            description: 'Crédito recebido da empresa',
+                            origin: 'TRANSFER',
+                            referenceId: null,
+                            createdAt: '2026-05-23T18:20:00.000Z',
+                        },
+                    ],
+                    total: 1,
+                    page: 1,
+                    limit: 10,
+                    totalPages: 1,
+                },
+            },
+        },
+    }),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Query)('historyPage')),
+    __param(2, (0, common_1.Query)('historyLimit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", void 0)
+], CompanyController.prototype, "findUserCreditDetails", null);
+__decorate([
+    (0, common_1.Get)('historic-company/:companyId'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Buscar histórico de créditos da empresa',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Detalhes da carteira da empresa com saldo e histórico paginado',
+        schema: {
+            example: {
+                company: {
+                    id: 1,
+                    name: 'Minha Empresa LTDA',
+                    domain: 'minhaempresa',
+                },
                 wallet: {
                     id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
                     type: 'COMPANY',
@@ -119,17 +249,8 @@ __decorate([
                             referenceId: 'OP-9281',
                             createdAt: '2026-05-23T17:10:00.000Z',
                         },
-                        {
-                            id: 10,
-                            amount: 500,
-                            type: 'CREDIT',
-                            description: 'Transferência recebida',
-                            origin: 'TRANSFER',
-                            referenceId: null,
-                            createdAt: '2026-05-23T15:40:00.000Z',
-                        },
                     ],
-                    total: 3,
+                    total: 2,
                     page: 1,
                     limit: 10,
                     totalPages: 1,
@@ -137,8 +258,7 @@ __decorate([
             },
         },
     }),
-    (0, common_1.Get)('historic/:userIdOrCompanyId'),
-    __param(0, (0, common_1.Param)('userIdOrCompanyId')),
+    __param(0, (0, common_1.Param)('companyId')),
     __param(1, (0, common_1.Query)('historyPage')),
     __param(2, (0, common_1.Query)('historyLimit')),
     __metadata("design:type", Function),

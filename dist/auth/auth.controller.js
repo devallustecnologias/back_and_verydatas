@@ -47,6 +47,7 @@ let AuthController = class AuthController {
         }
     }
     me(req) {
+        console.log(req.user);
         return req.user;
     }
 };

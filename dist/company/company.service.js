@@ -102,42 +102,112 @@ let CompanyService = class CompanyService {
             totalPages: Math.ceil(total / limit),
         };
     }
-    async findCreditDetails(userIdOrCompanyId, historyPage = 1, historyLimit = 10) {
-        const isCompany = !isNaN(Number(userIdOrCompanyId));
-        let company = null;
-        let user = null;
-        if (isCompany) {
-            company = await this.companyRepo.findOne({
+    async findUsersWithBalance(page = 1, limit = 10, search) {
+        const where = search
+            ? [
+                { username: (0, typeorm_2.ILike)(`%${search}%`) },
+                { email: (0, typeorm_2.ILike)(`%${search}%`) },
+            ]
+            : {};
+        const [users, total] = await this.userRepo.findAndCount({
+            where,
+            relations: {
+                company: true,
+            },
+            skip: (page - 1) * limit,
+            take: limit,
+            order: {
+                createdAt: 'DESC',
+            },
+        });
+        const data = await Promise.all(users.map(async (user) => {
+            const wallet = await this.walletRepo.findOne({
                 where: {
-                    id: Number(userIdOrCompanyId),
-                },
-            });
-        }
-        else {
-            user = await this.userRepo.findOne({
-                where: {
-                    uid: userIdOrCompanyId,
-                },
-                relations: ['company'],
-            });
-        }
-        const wallet = await this.walletRepo.findOne({
-            where: isCompany
-                ? {
-                    type: 'COMPANY',
-                    companyId: Number(userIdOrCompanyId),
-                }
-                : {
                     type: 'USER',
-                    userId: userIdOrCompanyId,
+                    userId: user.uid,
                 },
+            });
+            if (!wallet) {
+                return {
+                    uid: user.uid,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    company: user.company
+                        ? {
+                            id: user.company.id,
+                            name: user.company.name,
+                            domain: user.company.domain,
+                        }
+                        : null,
+                    totalCredit: 0,
+                    availableCredit: 0,
+                };
+            }
+            const credit = await this.ledgerRepo
+                .createQueryBuilder('ledger')
+                .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+                .where('ledger.walletId = :walletId', {
+                walletId: wallet.id,
+            })
+                .andWhere('ledger.type = :type', {
+                type: ledger_entity_1.LedgerType.CREDIT,
+            })
+                .getRawOne();
+            const debit = await this.ledgerRepo
+                .createQueryBuilder('ledger')
+                .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+                .where('ledger.walletId = :walletId', {
+                walletId: wallet.id,
+            })
+                .andWhere('ledger.type = :type', {
+                type: ledger_entity_1.LedgerType.DEBIT,
+            })
+                .getRawOne();
+            const totalCredits = Number(credit.total);
+            const totalDebits = Number(debit.total);
+            return {
+                uid: user.uid,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                company: user.company
+                    ? {
+                        id: user.company.id,
+                        name: user.company.name,
+                        domain: user.company.domain,
+                    }
+                    : null,
+                totalCredit: totalCredits,
+                availableCredit: totalCredits - totalDebits,
+            };
+        }));
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+    async findCreditDetailsCompany(companyId, historyPage = 1, historyLimit = 10) {
+        const company = await this.companyRepo.findOne({
+            where: {
+                id: Number(companyId),
+            },
+        });
+        const wallet = await this.walletRepo.findOne({
+            where: {
+                type: 'COMPANY',
+                companyId: Number(companyId),
+            },
         });
         if (!wallet) {
             return {
                 company,
-                user,
                 wallet: null,
                 totalCredit: 0,
+                totalDebit: 0,
                 availableCredit: 0,
                 history: {
                     data: [],
@@ -177,14 +247,95 @@ let CompanyService = class CompanyService {
             order: {
                 createdAt: 'DESC',
             },
-            skip: (historyPage - 1) *
-                historyLimit,
+            skip: (historyPage - 1) * historyLimit,
             take: historyLimit,
         });
         const totalCredits = Number(credit.total);
         const totalDebits = Number(debit.total);
         return {
             company,
+            wallet: {
+                id: wallet.id,
+                type: wallet.type,
+                companyId: wallet.companyId,
+                userId: wallet.userId,
+            },
+            totalCredit: totalCredits,
+            totalDebit: totalDebits,
+            availableCredit: totalCredits - totalDebits,
+            history: {
+                data: history,
+                total: historyTotal,
+                page: historyPage,
+                limit: historyLimit,
+                totalPages: Math.ceil(historyTotal / historyLimit),
+            },
+        };
+    }
+    async findUserCreditDetails(userId, historyPage = 1, historyLimit = 10) {
+        const user = await this.userRepo.findOne({
+            where: {
+                uid: userId,
+            },
+            relations: ['company'],
+        });
+        const wallet = await this.walletRepo.findOne({
+            where: {
+                type: 'USER',
+                userId,
+            },
+        });
+        if (!wallet) {
+            return {
+                user,
+                wallet: null,
+                totalCredit: 0,
+                totalDebit: 0,
+                availableCredit: 0,
+                history: {
+                    data: [],
+                    total: 0,
+                    page: historyPage,
+                    limit: historyLimit,
+                    totalPages: 0,
+                },
+            };
+        }
+        const credit = await this.ledgerRepo
+            .createQueryBuilder('ledger')
+            .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+            .where('ledger.walletId = :walletId', {
+            walletId: wallet.id,
+        })
+            .andWhere('ledger.type = :type', {
+            type: ledger_entity_1.LedgerType.CREDIT,
+        })
+            .getRawOne();
+        const debit = await this.ledgerRepo
+            .createQueryBuilder('ledger')
+            .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+            .where('ledger.walletId = :walletId', {
+            walletId: wallet.id,
+        })
+            .andWhere('ledger.type = :type', {
+            type: ledger_entity_1.LedgerType.DEBIT,
+        })
+            .getRawOne();
+        const [history, historyTotal] = await this.ledgerRepo.findAndCount({
+            where: {
+                wallet: {
+                    id: wallet.id,
+                },
+            },
+            order: {
+                createdAt: 'DESC',
+            },
+            skip: (historyPage - 1) * historyLimit,
+            take: historyLimit,
+        });
+        const totalCredits = Number(credit.total);
+        const totalDebits = Number(debit.total);
+        return {
             user,
             wallet: {
                 id: wallet.id,
