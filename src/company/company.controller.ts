@@ -123,69 +123,69 @@ export class CompanyController {
   }
 
   @Get('historic-user/:userId')
-@ApiOperation({
-  summary: 'Buscar histórico de créditos do usuário',
-})
-@ApiResponse({
-  status: 200,
-  description:
-    'Detalhes da carteira do usuário com saldo e histórico paginado',
-  schema: {
-    example: {
-      user: {
-        uid: '6e545637-9adf-4235-abda-0465765b8ea2',
-        username: 'afranio',
-        email: 'afranio@gmail.com',
-        role: 'operador',
-        company: {
-          id: 1,
-          name: 'Minha Empresa LTDA',
-          domain: 'minhaempresa',
+  @ApiOperation({
+    summary: 'Buscar histórico de créditos do usuário',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Detalhes da carteira do usuário com saldo e histórico paginado',
+    schema: {
+      example: {
+        user: {
+          uid: '6e545637-9adf-4235-abda-0465765b8ea2',
+          username: 'afranio',
+          email: 'afranio@gmail.com',
+          role: 'operador',
+          company: {
+            id: 1,
+            name: 'Minha Empresa LTDA',
+            domain: 'minhaempresa',
+          },
+        },
+
+        wallet: {
+          id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
+          type: 'USER',
+          companyId: null,
+          userId: '6e545637-9adf-4235-abda-0465765b8ea2',
+        },
+
+        totalCredit: 1000,
+        totalDebit: 200,
+        availableCredit: 800,
+
+        history: {
+          data: [
+            {
+              id: 12,
+              amount: 1000,
+              type: 'CREDIT',
+              description: 'Crédito recebido da empresa',
+              origin: 'TRANSFER',
+              referenceId: null,
+              createdAt: '2026-05-23T18:20:00.000Z',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
         },
       },
-
-      wallet: {
-        id: '3d8d2d11-cf9d-4f2e-9c42-8cb0e5d51a22',
-        type: 'USER',
-        companyId: null,
-        userId: '6e545637-9adf-4235-abda-0465765b8ea2',
-      },
-
-      totalCredit: 1000,
-      totalDebit: 200,
-      availableCredit: 800,
-
-      history: {
-        data: [
-          {
-            id: 12,
-            amount: 1000,
-            type: 'CREDIT',
-            description: 'Crédito recebido da empresa',
-            origin: 'TRANSFER',
-            referenceId: null,
-            createdAt: '2026-05-23T18:20:00.000Z',
-          },
-        ],
-        total: 1,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
-      },
     },
-  },
-})
-findUserCreditDetails(
-  @Param('userId') userId: string,
-  @Query('historyPage') historyPage = '1',
-  @Query('historyLimit') historyLimit = '10',
-) {
-  return this.companyService.findUserCreditDetails(
-    userId,
-    Number(historyPage),
-    Number(historyLimit),
-  );
-}
+  })
+  findUserCreditDetails(
+    @Param('userId') userId: string,
+    @Query('historyPage') historyPage = '1',
+    @Query('historyLimit') historyLimit = '10',
+  ) {
+    return this.companyService.findUserCreditDetails(
+      userId,
+      Number(historyPage),
+      Number(historyLimit),
+    );
+  }
 
   @Get('historic-company/:companyId')
   @ApiOperation({

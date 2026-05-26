@@ -4,7 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -26,6 +26,9 @@ export class UserService {
 
         @InjectRepository(Plan)
         private readonly planRepo: Repository<Plan>,
+
+        @InjectRepository(Permission)
+private readonly permissionRepo: Repository<Permission>,
     ) { }
 
     private async hashPassword(password: string) {
@@ -179,7 +182,7 @@ export class UserService {
     async findOne(uid: string): Promise<User> {
         const user = await this.userRepo.findOne({
             where: { uid },
-            relations: ['company'],
+            relations: ['company', 'plan'],
         });
 
         if (!user) {
@@ -189,38 +192,55 @@ export class UserService {
         return user;
     }
 
-    async update(uid: string, dto: UpdateUserDto): Promise<User> {
-        const user = await this.findOne(uid);
+async update(uid: string, dto: UpdateUserDto): Promise<User> {
+  const user = await this.findOne(uid);
 
-        if (user.role === UserRole.MASTER) {
-            throw new BadRequestException('Não é permitido editar usuário MASTER');
-        }
+  if (user.role === UserRole.MASTER) {
+    throw new BadRequestException('Não é permitido editar usuário MASTER');
+  }
 
-        let company: Company | null = null;
+  if (!user.plan) {
+    throw new BadRequestException('Usuário não possui plano vinculado');
+  }
 
-        if (dto.companyId) {
-            company = await this.companyRepo.findOne({
-                where: { id: dto.companyId },
-            });
+  if (dto.companyId) {
+    const company = await this.companyRepo.findOne({
+      where: { id: dto.companyId },
+    });
 
-            if (!company) {
-                throw new NotFoundException('Empresa não encontrada');
-            }
-        }
-
-        user.username = dto.username;
-        user.email = dto.email;
-
-        if (dto.password) {
-            user.password = await bcrypt.hash(dto.password, 10);
-        }
-
-        if (dto.companyId) {
-            user.company = company;
-        }
-
-        return this.userRepo.save(user);
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada');
     }
+
+    user.company = company;
+  }
+
+  if (dto.permissionIds) {
+    const permissions = await this.permissionRepo.find({
+      where: {
+        id: In(dto.permissionIds),
+      },
+    });
+
+    user.plan.permissions = permissions;
+
+    await this.planRepo.save(user.plan);
+  }
+
+  if (dto.username) {
+    user.username = dto.username;
+  }
+
+  if (dto.email) {
+    user.email = dto.email;
+  }
+
+  if (dto.password) {
+    user.password = await bcrypt.hash(dto.password, 10);
+  }
+
+  return this.userRepo.save(user);
+}
 
     async remove(uid: string): Promise<void> {
         const user = await this.findOne(uid);
