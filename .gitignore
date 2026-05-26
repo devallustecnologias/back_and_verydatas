@@ -1,3 +1,4 @@
 /node_modules
 connect.sh
 .env
+dist/
