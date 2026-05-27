@@ -11,8 +11,9 @@ import {
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { Company } from './company.entity';
+import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
 
 @ApiTags('Companies')
 @Controller('companies')
@@ -335,5 +336,24 @@ export class CompanyController {
   })
   getCompanyPermissions(@Param('id') id: number) {
     return this.companyService.getPermissions(Number(id));
+  }
+
+  @Get('cnpj/:cnpj')
+  @ApiOperation({
+    summary: 'Buscar dados da empresa pelo CNPJ',
+  })
+  @ApiParam({
+    name: 'cnpj',
+    example: '34028316000103',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados aproveitáveis para cadastro da empresa',
+    type: CompanyCnpjDataDto,
+  })
+  async getDataByCnpj(
+    @Param('cnpj') cnpj: string,
+  ): Promise<CompanyCnpjDataDto> {
+    return this.companyService.getDataByCnpj(cnpj);
   }
 }

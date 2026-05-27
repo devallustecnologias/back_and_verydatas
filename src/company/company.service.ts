@@ -12,6 +12,10 @@ import { Plan } from 'src/entities/plan/plan.entity';
 import { Wallet } from 'src/ledger/walled.entity';
 import { Ledger, LedgerType } from 'src/ledger/ledger.entity';
 import { User } from 'src/entities/user/user.entity';
+import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
+import * as cnpjLib from '@cnpjs/cnpj';
+import axios from 'axios';
+
 
 @Injectable()
 export class CompanyService {
@@ -468,33 +472,47 @@ async findUserCreditDetails(
     return this.companyRepo.save(company);
   }
 
-  async update(id: number, dto: UpdateCompanyDto): Promise<Company> {
-    console.log(id, dto)
-    const company = await this.findOne(id);
+async update(
+  id: number,
+  dto: UpdateCompanyDto,
+): Promise<Company> {
+  const company = await this.findOne(id);
 
-    const domainExists = await this.companyRepo.findOne({
-      where: { domain: dto.domain },
-    });
+  if (dto.domain !== undefined) {
+    const domainExists =
+      await this.companyRepo.findOne({
+        where: { domain: dto.domain },
+      });
 
-    const planExists = await this.planRepo.findOne({
-      where: { id: dto.planId },
-    });
+    if (
+      domainExists &&
+      domainExists.id !== id
+    ) {
+      throw new BadRequestException(
+        'Domínio já está em uso',
+      );
+    }
+  }
+
+  if (dto.planId !== undefined) {
+    const planExists =
+      await this.planRepo.findOne({
+        where: { id: dto.planId },
+      });
 
     if (!planExists) {
-      throw new BadRequestException('Plano não existe na base de dados');
+      throw new BadRequestException(
+        'Plano não existe na base de dados',
+      );
     }
 
-    if (domainExists && domainExists.id !== id) {
-      throw new BadRequestException('Domínio já está em uso');
-    }
-    console.log(company?.plan)
-    company.name = dto.name;
-    company.domain = dto.domain;
-    company.logoUrl = dto.logoUrl;
-    company.plan = planExists
-
-    return this.companyRepo.save(company);
+    company.plan = planExists;
   }
+
+  Object.assign(company, dto);
+
+  return this.companyRepo.save(company);
+}
 
   async remove(id: number): Promise<void> {
     const company = await this.findOne(id);
@@ -523,4 +541,40 @@ async findUserCreditDetails(
 
     return company.plan?.permissions ?? [];
   }
+
+async getDataByCnpj(cnpjNumber: string): Promise<CompanyCnpjDataDto> {
+  const cleanCnpj = cnpjNumber.replace(/\D/g, '');
+
+  if (cleanCnpj.length !== 14) {
+    throw new BadRequestException('CNPJ inválido');
+  }
+
+  const { data } = await axios.get(
+    `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
+  );
+
+  return {
+    name: data.nome_fantasia || data.razao_social || '',
+    cnpj: data.cnpj || '',
+    corporateName: data.razao_social || '',
+    tradeName: data.nome_fantasia || '',
+
+    address: `${data.descricao_tipo_de_logradouro || ''} ${data.logradouro || ''}, ${data.numero || ''}`.trim(),
+    city: data.municipio || '',
+    state: data.uf || '',
+    zipCode: data.cep || '',
+
+    companyEmail: data.email || '',
+    landlinePhone: data.ddd_telefone_1 || '',
+    whatsapp: data.ddd_telefone_1 || '',
+
+    representativeName: data.qsa?.[0]?.nome_socio || '',
+    representativeCpf: data.qsa?.[0]?.cnpj_cpf_do_socio || '',
+
+    contactName: data.qsa?.[0]?.nome_socio || '',
+    contactCpf: data.qsa?.[0]?.cnpj_cpf_do_socio || '',
+    contactEmail: data.email || '',
+    contactWhatsapp: data.ddd_telefone_1 || '',
+  };
+}
 }

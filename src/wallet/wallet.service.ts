@@ -28,45 +28,45 @@ export class WalletService {
   ) { }
 
   async addCreditUser(
-  companyId: number,
-  userId: string,
-  amount: number,
-  description?: string,
-) {
-  if (amount <= 0) {
-    throw new BadRequestException('Valor inválido');
-  }
-
-  return this.dataSource.transaction(async (manager) => {
-    const walletRepo = manager.getRepository(Wallet);
-    const ledgerRepo = manager.getRepository(Ledger);
-
-    const companyWallet = await walletRepo.findOne({
-      where: {
-        companyId,
-        type: 'COMPANY',
-      },
-    });
-
-    if (!companyWallet) {
-      throw new NotFoundException('Wallet da empresa não encontrada');
+    companyId: number,
+    userId: string,
+    amount: number,
+    description?: string,
+  ) {
+    if (amount <= 0) {
+      throw new BadRequestException('Valor inválido');
     }
 
-    const userWallet = await walletRepo.findOne({
-      where: {
-        userId,
-        type: 'USER',
-      },
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const walletRepo = manager.getRepository(Wallet);
+      const ledgerRepo = manager.getRepository(Ledger);
 
-    if (!userWallet) {
-      throw new NotFoundException('Wallet do usuário não encontrada');
-    }
+      const companyWallet = await walletRepo.findOne({
+        where: {
+          companyId,
+          type: 'COMPANY',
+        },
+      });
 
-    const companyCredits = await ledgerRepo
-      .createQueryBuilder('ledger')
-      .select(
-        `
+      if (!companyWallet) {
+        throw new NotFoundException('Wallet da empresa não encontrada');
+      }
+
+      const userWallet = await walletRepo.findOne({
+        where: {
+          userId,
+          type: 'USER',
+        },
+      });
+
+      if (!userWallet) {
+        throw new NotFoundException('Wallet do usuário não encontrada');
+      }
+
+      const companyCredits = await ledgerRepo
+        .createQueryBuilder('ledger')
+        .select(
+          `
         COALESCE(SUM(
           CASE 
             WHEN ledger.type = :credit THEN ledger.amount
@@ -75,55 +75,55 @@ export class WalletService {
           END
         ), 0)
         `,
-        'balance',
-      )
-      .where('ledger.walletId = :walletId', {
-        walletId: companyWallet.id,
-      })
-      .setParameters({
-        credit: LedgerType.CREDIT,
-        debit: LedgerType.DEBIT,
-      })
-      .getRawOne();
+          'balance',
+        )
+        .where('ledger.walletId = :walletId', {
+          walletId: companyWallet.id,
+        })
+        .setParameters({
+          credit: LedgerType.CREDIT,
+          debit: LedgerType.DEBIT,
+        })
+        .getRawOne();
 
-    const availableCredit = Number(companyCredits.balance || 0);
+      const availableCredit = Number(companyCredits.balance || 0);
 
-    if (availableCredit < amount) {
-      throw new BadRequestException(
-        'A empresa não possui créditos suficientes',
-      );
-    }
+      if (availableCredit < amount) {
+        throw new BadRequestException(
+          'A empresa não possui créditos suficientes',
+        );
+      }
 
-    const companyLedger = await ledgerRepo.save({
-      wallet: companyWallet,
-      amount,
-      type: LedgerType.DEBIT,
-      origin: LedgerOrigin.TRANSFER,
-      description:
-        description || `Crédito transferido para o usuário ${userId}`,
+      const companyLedger = await ledgerRepo.save({
+        wallet: companyWallet,
+        amount,
+        type: LedgerType.DEBIT,
+        origin: LedgerOrigin.TRANSFER,
+        description:
+          description || `Crédito transferido para o usuário ${userId}`,
+      });
+
+      const userLedger = await ledgerRepo.save({
+        wallet: userWallet,
+        amount,
+        type: LedgerType.CREDIT,
+        origin: LedgerOrigin.TRANSFER,
+        description:
+          description || `Crédito recebido da empresa ${companyId}`,
+      });
+
+      return {
+        success: true,
+        companyId,
+        userId,
+        amount,
+        companyWalletId: companyWallet.id,
+        userWalletId: userWallet.id,
+        companyLedger,
+        userLedger,
+      };
     });
-
-    const userLedger = await ledgerRepo.save({
-      wallet: userWallet,
-      amount,
-      type: LedgerType.CREDIT,
-      origin: LedgerOrigin.TRANSFER,
-      description:
-        description || `Crédito recebido da empresa ${companyId}`,
-    });
-
-    return {
-      success: true,
-      companyId,
-      userId,
-      amount,
-      companyWalletId: companyWallet.id,
-      userWalletId: userWallet.id,
-      companyLedger,
-      userLedger,
-    };
-  });
-}
+  }
 
   async addCredits(
     walletId: string,

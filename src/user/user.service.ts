@@ -28,7 +28,7 @@ export class UserService {
         private readonly planRepo: Repository<Plan>,
 
         @InjectRepository(Permission)
-private readonly permissionRepo: Repository<Permission>,
+        private readonly permissionRepo: Repository<Permission>,
     ) { }
 
     private async hashPassword(password: string) {
@@ -192,55 +192,55 @@ private readonly permissionRepo: Repository<Permission>,
         return user;
     }
 
-async update(uid: string, dto: UpdateUserDto): Promise<User> {
-  const user = await this.findOne(uid);
+    async update(uid: string, dto: UpdateUserDto): Promise<User> {
+        const user = await this.findOne(uid);
 
-  if (user.role === UserRole.MASTER) {
-    throw new BadRequestException('Não é permitido editar usuário MASTER');
-  }
+        if (user.role === UserRole.MASTER) {
+            throw new BadRequestException('Não é permitido editar usuário MASTER');
+        }
 
-  if (!user.plan) {
-    throw new BadRequestException('Usuário não possui plano vinculado');
-  }
+        if (!user.plan) {
+            throw new BadRequestException('Usuário não possui plano vinculado');
+        }
 
-  if (dto.companyId) {
-    const company = await this.companyRepo.findOne({
-      where: { id: dto.companyId },
-    });
+        if (dto.companyId) {
+            const company = await this.companyRepo.findOne({
+                where: { id: dto.companyId },
+            });
 
-    if (!company) {
-      throw new NotFoundException('Empresa não encontrada');
+            if (!company) {
+                throw new NotFoundException('Empresa não encontrada');
+            }
+
+            user.company = company;
+        }
+
+        if (dto.permissionIds) {
+            const permissions = await this.permissionRepo.find({
+                where: {
+                    id: In(dto.permissionIds),
+                },
+            });
+
+            user.plan.permissions = permissions;
+
+            await this.planRepo.save(user.plan);
+        }
+
+        if (dto.username) {
+            user.username = dto.username;
+        }
+
+        if (dto.email) {
+            user.email = dto.email;
+        }
+
+        if (dto.password) {
+            user.password = await bcrypt.hash(dto.password, 10);
+        }
+
+        return this.userRepo.save(user);
     }
-
-    user.company = company;
-  }
-
-  if (dto.permissionIds) {
-    const permissions = await this.permissionRepo.find({
-      where: {
-        id: In(dto.permissionIds),
-      },
-    });
-
-    user.plan.permissions = permissions;
-
-    await this.planRepo.save(user.plan);
-  }
-
-  if (dto.username) {
-    user.username = dto.username;
-  }
-
-  if (dto.email) {
-    user.email = dto.email;
-  }
-
-  if (dto.password) {
-    user.password = await bcrypt.hash(dto.password, 10);
-  }
-
-  return this.userRepo.save(user);
-}
 
     async remove(uid: string): Promise<void> {
         const user = await this.findOne(uid);
@@ -263,79 +263,79 @@ async update(uid: string, dto: UpdateUserDto): Promise<User> {
 
         return user.plan?.permissions ?? [];
     }
-// user.service.ts
+    // user.service.ts
 
-async findAll(
-  page = 1,
-  limit = 10,
-  search?: string,
-) {
-  const query =
-    this.userRepo.createQueryBuilder(
-      'user',
-    );
+    async findAll(
+        page = 1,
+        limit = 10,
+        search?: string,
+    ) {
+        const query =
+            this.userRepo.createQueryBuilder(
+                'user',
+            );
 
-  query
-    .leftJoinAndSelect(
-      'user.company',
-      'company',
-    )
-    .leftJoinAndSelect(
-      'user.plan',
-      'plan',
-    );
+        query
+            .leftJoinAndSelect(
+                'user.company',
+                'company',
+            )
+            .leftJoinAndSelect(
+                'user.plan',
+                'plan',
+            );
 
-  // BUSCA POR NOME
-  if (search) {
-    query.andWhere(
-      'LOWER(user.username) LIKE LOWER(:search)',
-      {
-        search: `%${search}%`,
-      },
-    );
-  }
+        // BUSCA POR NOME
+        if (search) {
+            query.andWhere(
+                'LOWER(user.username) LIKE LOWER(:search)',
+                {
+                    search: `%${search}%`,
+                },
+            );
+        }
 
-  // PAGINAÇÃO
-  query
-    .orderBy(
-      'user.createdAt',
-      'DESC',
-    )
-    .skip((page - 1) * limit)
-    .take(limit);
+        // PAGINAÇÃO
+        query
+            .orderBy(
+                'user.createdAt',
+                'DESC',
+            )
+            .skip((page - 1) * limit)
+            .take(limit);
 
-  const [users, total] =
-    await query.getManyAndCount();
+        const [users, total] =
+            await query.getManyAndCount();
 
-  return {
-    data: users,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(
-      total / limit,
-    ),
-  };
-}
-async findOneById(uid: string): Promise<User> {
-  const user = await this.userRepo.findOne({
-    where: { uid },
-    relations: {
-      company: {
-        plan: {
-          permissions: true,
-        },
-      },
-      plan: {
-        permissions: true,
-      },
-    },
-  });
+        return {
+            data: users,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(
+                total / limit,
+            ),
+        };
+    }
+    async findOneById(uid: string): Promise<User> {
+        const user = await this.userRepo.findOne({
+            where: { uid },
+            relations: {
+                company: {
+                    plan: {
+                        permissions: true,
+                    },
+                },
+                plan: {
+                    permissions: true,
+                },
+            },
+        });
 
-  if (!user) {
-    throw new NotFoundException('Usuário não encontrado');
-  }
+        if (!user) {
+            throw new NotFoundException('Usuário não encontrado');
+        }
 
-  return user;
-}
+        return user;
+    }
 }
