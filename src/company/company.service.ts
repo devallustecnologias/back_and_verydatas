@@ -15,6 +15,7 @@ import { User } from 'src/entities/user/user.entity';
 import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
 import * as cnpjLib from '@cnpjs/cnpj';
 import axios from 'axios';
+import { toTitleCase } from 'src/lib/convert.to-title';
 
 
 @Injectable()
@@ -451,26 +452,85 @@ async findUserCreditDetails(
     return company;
   }
 
-  async create(dto: CreateCompanyDto): Promise<Company> {
-    const exists = await this.companyRepo.findOne({
-      where: { domain: dto.domain },
+async create(
+  dto: CreateCompanyDto
+): Promise<Company> {
+  const exists =
+    await this.companyRepo.findOne({
+      where: {
+        domain: dto.domain.toLowerCase(),
+      },
     });
 
-    if (exists) {
-      throw new BadRequestException('Domínio já está em uso');
+  if (exists) {
+    throw new BadRequestException(
+      'Domínio já está em uso'
+    );
+  }
+
+  // percorre todos os campos
+  Object.keys(dto).forEach((key) => {
+    const value =
+      dto[key as keyof CreateCompanyDto];
+
+    if (typeof value !== 'string') {
+      return;
     }
 
-    const plan = dto.planId
-      ? await this.planRepo.findOne({ where: { id: dto.planId } })
-      : null;
+    // domínio e emails
+    if (
+      key === 'domain' ||
+      key.toLowerCase().includes('email')
+    ) {
+      dto[key as keyof CreateCompanyDto] =
+        value.toLowerCase() as never;
 
-    const company = this.companyRepo.create({
+      return;
+    }
+
+    // UF
+    if (key === 'state') {
+      dto[key as keyof CreateCompanyDto] =
+        value.toUpperCase() as never;
+
+      return;
+    }
+
+    // URL
+    if (key === 'logoUrl') {
+      return;
+    }
+
+    // campos numéricos/documentos
+    if (
+      key.includes('cpf') ||
+      key.includes('cnpj') ||
+      key.includes('phone') ||
+      key.includes('whatsapp') ||
+      key.includes('zipCode')
+    ) {
+      return;
+    }
+
+    // restante = Title Case
+    dto[key as keyof CreateCompanyDto] =
+      toTitleCase(value) as never;
+  });
+
+  const plan = dto.planId
+    ? await this.planRepo.findOne({
+        where: { id: dto.planId },
+      })
+    : null;
+
+  const company =
+    this.companyRepo.create({
       ...dto,
       plan,
     });
 
-    return this.companyRepo.save(company);
-  }
+  return this.companyRepo.save(company);
+}
 
 async update(
   id: number,
@@ -478,10 +538,61 @@ async update(
 ): Promise<Company> {
   const company = await this.findOne(id);
 
+  // percorre todos os campos antes
+  Object.keys(dto).forEach((key) => {
+    const value =
+      dto[key as keyof UpdateCompanyDto];
+
+    if (typeof value !== 'string') {
+      return;
+    }
+
+    // domínio e emails
+    if (
+      key === 'domain' ||
+      key.toLowerCase().includes('email')
+    ) {
+      dto[key as keyof UpdateCompanyDto] =
+        value.toLowerCase() as never;
+
+      return;
+    }
+
+    // UF
+    if (key === 'state') {
+      dto[key as keyof UpdateCompanyDto] =
+        value.toUpperCase() as never;
+
+      return;
+    }
+
+    // URL
+    if (key === 'logoUrl') {
+      return;
+    }
+
+    // campos numéricos/documentos
+    if (
+      key.toLowerCase().includes('cpf') ||
+      key.toLowerCase().includes('cnpj') ||
+      key.toLowerCase().includes('phone') ||
+      key.toLowerCase().includes('whatsapp') ||
+      key.toLowerCase().includes('zipcode')
+    ) {
+      return;
+    }
+
+    // restante = Title Case
+    dto[key as keyof UpdateCompanyDto] =
+      toTitleCase(value) as never;
+  });
+
   if (dto.domain !== undefined) {
     const domainExists =
       await this.companyRepo.findOne({
-        where: { domain: dto.domain },
+        where: {
+          domain: dto.domain,
+        },
       });
 
     if (
