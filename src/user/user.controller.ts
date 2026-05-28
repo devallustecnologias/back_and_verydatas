@@ -4,6 +4,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { User } from 'src/auth/user.decorator';
 
 @ApiTags('Users')
 @Controller('users')
@@ -89,10 +90,10 @@ export class UserController {
         return this.userService.remove(uid);
     }
 
-    // @UseGuards(JwtAuthGuard)
     @Get(':userId/permissions')
     @ApiOperation({ summary: 'Listar permissões do usuário' })
-    getUserPermissions(@Param('userId') userId: string) {
+    getUserPermissions(@Param('userId') userId: string, @User() user: any) {
+        console.log("User do interceptor:", user)
         return this.userService.getUserPermissions(userId);
     }
 }

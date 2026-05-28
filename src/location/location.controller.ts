@@ -1,5 +1,6 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -8,13 +9,30 @@ import {
 import { LocationService } from './location.service';
 import { StateResponseDto } from './dto/state-response.dto';
 import { CityResponseDto } from './dto/city-response.dto';
+import { Permissions } from 'src/permitions/permissions.decorator';
+import { PERMISSIONS } from 'src/permitions/permissions.constants';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { PermissionsGuard } from 'src/permitions/permissions.guard';
+import { User } from 'src/auth/user.decorator';
 
+@ApiBearerAuth()
 @ApiTags('Locations')
 @Controller('locations')
 export class LocationController {
   constructor(
     private readonly locationService: LocationService,
-  ) {}
+  ) { }
+
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(
+    PERMISSIONS.PLAN.CREATE,
+    PERMISSIONS.USER.UPDATE
+  )
+  @Get('testar')
+  getTest(@User() user: any) {
+    console.log("Passou")
+  }
 
   @Get('states')
   @ApiOperation({ summary: 'Listar estados do Brasil' })
