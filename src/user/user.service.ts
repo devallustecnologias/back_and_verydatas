@@ -54,44 +54,64 @@ export class UserService {
         return company;
     }
 
-    async createMaster(dto: CreateUserDto): Promise<User> {
-        const password = await this.hashPassword(dto.password);
+    async createMaster(
+        dto: CreateUserDto,
+    ): Promise<User> {
+        const password = await this.hashPassword(
+            dto.password,
+        );
 
         const user = this.userRepo.create({
             uid: uuidv4(),
             username: dto.username,
             email: dto.email,
             password,
+            cpf: dto.cpf,
+            whatsapp: dto.whatsapp,
             role: UserRole.MASTER,
         });
 
         return this.userRepo.save(user);
     }
 
-    async createAdmin(dto: CreateUserDto): Promise<User> {
+    async createAdmin(
+        dto: CreateUserDto,
+    ): Promise<User> {
         if (!dto.companyId) {
-            throw new BadRequestException('Empresa é obrigatória');
+            throw new BadRequestException(
+                'Empresa é obrigatória',
+            );
         }
 
-        const company = await this.findCompany(dto.companyId);
+        const company = await this.findCompany(
+            dto.companyId,
+        );
 
         if (company?.plan == null) {
-            throw new BadRequestException('Empresa não possui plano definido');
+            throw new BadRequestException(
+                'Empresa não possui plano definido',
+            );
         }
 
-        const password = await this.hashPassword(dto.password);
+        const password = await this.hashPassword(
+            dto.password,
+        );
 
         let plan: Plan | null = null;
 
         // se veio plano customizado
         if (dto.permissionIds?.length) {
             const companyPermissionIds =
-                company.plan?.permissions.map((p) => p.id) ?? [];
+                company.plan?.permissions.map(
+                    p => p.id,
+                ) ?? [];
 
             // valida se permissões estão dentro da empresa
-            const invalidPermissions = dto.permissionIds.filter(
-                (id) => !companyPermissionIds.includes(id),
-            );
+            const invalidPermissions =
+                dto.permissionIds.filter(
+                    id =>
+                        !companyPermissionIds.includes(id),
+                );
 
             if (invalidPermissions.length > 0) {
                 throw new BadRequestException(
@@ -103,9 +123,10 @@ export class UserService {
             plan = this.planRepo.create({
                 name: `custom-admin-${dto.username}`,
                 isSystem: false,
-                permissions: company.plan!.permissions.filter((p) =>
-                    dto.permissionIds!.includes(p.id),
-                ),
+                permissions:
+                    company.plan!.permissions.filter(p =>
+                        dto.permissionIds!.includes(p.id),
+                    ),
             });
 
             plan = await this.planRepo.save(plan);
@@ -116,9 +137,14 @@ export class UserService {
             username: dto.username,
             email: dto.email,
             password,
+            cpf: dto.cpf,
+            whatsapp: dto.whatsapp,
             role: UserRole.EMPRESA,
             company: company ?? undefined,
-            plan: plan ?? company.plan ?? null,
+            plan:
+                plan ??
+                company.plan ??
+                null,
         });
 
         return this.userRepo.save(user);
@@ -166,12 +192,13 @@ export class UserService {
 
             plan = await this.planRepo.save(plan);
         }
-
         const user = this.userRepo.create({
             uid: uuidv4(),
             username: dto.username,
             email: dto.email,
             password,
+            cpf: dto.cpf,
+            whatsapp: dto.whatsapp,
             role: UserRole.OPERADOR,
             company: company ?? undefined,
             plan,

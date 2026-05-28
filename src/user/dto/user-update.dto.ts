@@ -1,10 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateUserDto {
-  @ApiProperty({ example: 'Novo Nome' })
+  @ApiProperty({
+    example: 'Novo Nome',
+  })
   username!: string;
 
-  @ApiProperty({ example: 'novo@email.com' })
+  @ApiProperty({
+    example: 'novo@email.com',
+  })
   email!: string;
 
   @ApiProperty({
@@ -15,14 +19,27 @@ export class UpdateUserDto {
 
   @ApiProperty({
     required: false,
+    example: '12345678900',
+  })
+  cpf?: string;
+
+  @ApiProperty({
+    required: false,
+    example: '5538999999999',
+  })
+  whatsapp?: string;
+
+  @ApiProperty({
+    required: false,
     example: 1,
   })
   companyId?: number;
 
   @ApiProperty({
-  required: false,
-  example: [1, 2, 3],
-  description: 'IDs das permissões do plano do operador',
-})
-permissionIds?: number[];
+    required: false,
+    example: [1, 2, 3],
+    description:
+      'IDs das permissões do plano do operador',
+  })
+  permissionIds?: number[];
 }

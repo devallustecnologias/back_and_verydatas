@@ -3,7 +3,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude } from 'class-transformer';
 import { Company } from 'src/company/company.entity';
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+} from 'typeorm';
+
 import { Plan } from '../plan/plan.entity';
 
 export enum UserRole {
@@ -31,6 +39,25 @@ export class User {
   @Exclude()
   password!: string;
 
+  @ApiProperty({
+    required: false,
+    example: '12345678900',
+  })
+  @Column({
+    nullable: true,
+    unique: true,
+  })
+  cpf?: string;
+
+  @ApiProperty({
+    required: false,
+    example: '5538999999999',
+  })
+  @Column({
+    nullable: true,
+  })
+  whatsapp?: string;
+
   @ApiProperty({ enum: UserRole })
   @Column({
     type: 'enum',
@@ -39,15 +66,23 @@ export class User {
   })
   role!: UserRole;
 
-  @ManyToOne(() => Company, company => company.users, { nullable: true })
+  @ManyToOne(
+    () => Company,
+    company => company.users,
+    { nullable: true },
+  )
   @JoinColumn({ name: 'company_id' })
   company?: Company | null;
 
-  @ManyToOne(() => Plan, { nullable: true })
+  @ManyToOne(() => Plan, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'plan_id' })
   plan?: Plan | null;
 
   @ApiProperty()
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({
+    type: 'timestamp',
+  })
   createdAt!: Date;
 }
