@@ -85,4 +85,15 @@ export class User {
     type: 'timestamp',
   })
   createdAt!: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  @Exclude()
+  hashedRefreshToken?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  @Exclude()
+  twoFactorAuthenticationSecret?: string | null;
+
+  @Column({ default: false })
+  isTwoFactorAuthenticationEnabled!: boolean;
 }
