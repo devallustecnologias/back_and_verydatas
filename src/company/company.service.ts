@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from './company.entity';
@@ -39,12 +40,25 @@ export class CompanyService {
     page = 1,
     limit = 10,
     search?: string,
+    currentUser?: { sub: string; role: string },
   ) {
-    const where = search
+    let where: any = search
       ? {
         name: ILike(`%${search}%`),
       }
       : {};
+
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company'],
+      });
+      if (loggedUser?.company) {
+        where = { ...where, id: loggedUser.company.id };
+      } else {
+        where = { ...where, id: -1 };
+      }
+    }
 
     const [companies, total] =
       await this.companyRepo.findAndCount({
@@ -120,31 +134,39 @@ export class CompanyService {
   }
 
   async findUsersWithBalance(
-  page = 1,
-  limit = 10,
-  search?: string,
-) {
-  const where = search
-    ? [
-        { username: ILike(`%${search}%`) },
-        { email: ILike(`%${search}%`) },
-      ]
-    : {};
+    page = 1,
+    limit = 10,
+    search?: string,
+    currentUser?: { sub: string; role: string },
+  ) {
+    const query = this.userRepo.createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company');
 
-  const [users, total] =
-    await this.userRepo.findAndCount({
-      where,
-      relations: {
-        company: true,
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      order: {
-        createdAt: 'DESC',
-      },
-    });
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company'],
+      });
+      if (loggedUser?.company) {
+        query.andWhere('company.id = :companyId', { companyId: loggedUser.company.id });
+      }
+      query.andWhere('user.role != :masterRole', { masterRole: 'master' });
+    }
 
-  const data = await Promise.all(
+    if (search) {
+      query.andWhere('(LOWER(user.username) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))', {
+        search: `%${search.toLowerCase()}%`,
+      });
+    }
+
+    query
+      .orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [users, total] = await query.getManyAndCount();
+
+    const data = await Promise.all(
     users.map(async (user) => {
       const wallet = await this.walletRepo.findOne({
         where: {
@@ -223,18 +245,29 @@ export class CompanyService {
   };
 }
 
-async findCreditDetailsCompany(
-  companyId: string,
-  historyPage = 1,
-  historyLimit = 10,
-) {
-  const company = await this.companyRepo.findOne({
-    where: {
-      id: Number(companyId),
-    },
-  });
+  async findCreditDetailsCompany(
+    companyId: string,
+    historyPage = 1,
+    historyLimit = 10,
+    currentUser?: { sub: string; role: string },
+  ) {
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company'],
+      });
+      if (!loggedUser?.company || loggedUser.company.id !== Number(companyId)) {
+        throw new ForbiddenException('Você não tem permissão para acessar os créditos desta empresa');
+      }
+    }
 
-  const wallet = await this.walletRepo.findOne({
+    const company = await this.companyRepo.findOne({
+      where: {
+        id: Number(companyId),
+      },
+    });
+
+    const wallet = await this.walletRepo.findOne({
     where: {
       type: 'COMPANY',
       companyId: Number(companyId),
@@ -331,19 +364,42 @@ async findCreditDetailsCompany(
     },
   };
 }
-async findUserCreditDetails(
-  userId: string,
-  historyPage = 1,
-  historyLimit = 10,
-) {
-  const user = await this.userRepo.findOne({
-    where: {
-      uid: userId,
-    },
-    relations: ['company'],
-  });
 
-  const wallet = await this.walletRepo.findOne({
+  async findUserCreditDetails(
+    userId: string,
+    historyPage = 1,
+    historyLimit = 10,
+    currentUser?: { sub: string; role: string },
+  ) {
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company'],
+      });
+
+      if (currentUser.role === 'operador') {
+        if (currentUser.sub !== userId) {
+          throw new ForbiddenException('Operador só pode visualizar seus próprios créditos');
+        }
+      } else if (currentUser.role === 'empresa') {
+        const targetUser = await this.userRepo.findOne({
+          where: { uid: userId },
+          relations: ['company'],
+        });
+        if (!targetUser || !loggedUser?.company || targetUser.company?.id !== loggedUser.company.id) {
+          throw new ForbiddenException('Você só pode visualizar créditos de usuários da sua empresa');
+        }
+      }
+    }
+
+    const user = await this.userRepo.findOne({
+      where: {
+        uid: userId,
+      },
+      relations: ['company'],
+    });
+
+    const wallet = await this.walletRepo.findOne({
     where: {
       type: 'USER',
       userId,
@@ -433,13 +489,33 @@ async findUserCreditDetails(
   };
 }
 
-  async findAll(): Promise<Company[]> {
+  async findAll(currentUser?: { sub: string; role: string }): Promise<Company[]> {
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company', 'company.users', 'company.plan'],
+      });
+      if (loggedUser?.company) {
+        return [loggedUser.company];
+      }
+      return [];
+    }
     return this.companyRepo.find({
-      relations: ['users', 'plan'], // opcional
+      relations: ['users', 'plan'],
     });
   }
 
-  async findOne(id: number): Promise<Company> {
+  async findOne(id: number, currentUser?: { sub: string; role: string }): Promise<Company> {
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company'],
+      });
+      if (!loggedUser?.company || loggedUser.company.id !== id) {
+        throw new ForbiddenException('Você não tem permissão para acessar esta empresa');
+      }
+    }
+
     const company = await this.companyRepo.findOne({
       where: { id },
       relations: ['users', 'plan'],
@@ -447,6 +523,29 @@ async findUserCreditDetails(
 
     if (!company) {
       throw new NotFoundException('Empresa não encontrada');
+    }
+
+    return company;
+  }
+
+  async findByDomain(domainOrHost: string): Promise<Company> {
+    // Tenta encontrar pelo subdomínio ou pelo domínio completo
+    const domainClean = domainOrHost.toLowerCase().trim();
+    
+    // Extrai o subdomínio se aplicável (ex: "empresa1.sistema.com" -> "empresa1")
+    const parts = domainClean.split('.');
+    const subdomain = parts[0];
+
+    const company = await this.companyRepo.findOne({
+      where: [
+        { domain: domainClean },
+        { domain: subdomain }
+      ],
+      relations: ['plan'],
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada para o domínio informado');
     }
 
     return company;
@@ -535,8 +634,22 @@ async create(
 async update(
   id: number,
   dto: UpdateCompanyDto,
+  currentUser?: { sub: string; role: string },
 ): Promise<Company> {
-  const company = await this.findOne(id);
+  if (currentUser && currentUser.role !== 'master') {
+    const loggedUser = await this.userRepo.findOne({
+      where: { uid: currentUser.sub },
+      relations: ['company'],
+    });
+    if (!loggedUser?.company || loggedUser.company.id !== id) {
+      throw new ForbiddenException('Você não tem permissão para editar esta empresa');
+    }
+    if (dto.planId !== undefined || dto.domain !== undefined) {
+      throw new BadRequestException('Apenas usuários MASTER podem alterar o plano ou domínio da empresa');
+    }
+  }
+
+  const company = await this.findOne(id, currentUser);
 
   // percorre todos os campos antes
   Object.keys(dto).forEach((key) => {
@@ -625,8 +738,12 @@ async update(
   return this.companyRepo.save(company);
 }
 
-  async remove(id: number): Promise<void> {
-    const company = await this.findOne(id);
+  async remove(id: number, currentUser?: { sub: string; role: string }): Promise<void> {
+    if (currentUser && currentUser.role !== 'master') {
+      throw new ForbiddenException('Apenas usuários MASTER podem remover empresas do sistema');
+    }
+
+    const company = await this.findOne(id, currentUser);
 
     if (company.users?.length) {
       throw new BadRequestException(
@@ -636,7 +753,18 @@ async update(
 
     await this.companyRepo.remove(company);
   }
-  async getPermissions(companyId: number) {
+
+  async getPermissions(companyId: number, currentUser?: { sub: string; role: string }) {
+    if (currentUser && currentUser.role !== 'master') {
+      const loggedUser = await this.userRepo.findOne({
+        where: { uid: currentUser.sub },
+        relations: ['company'],
+      });
+      if (!loggedUser?.company || loggedUser.company.id !== companyId) {
+        throw new ForbiddenException('Você não tem permissão para acessar os dados desta empresa');
+      }
+    }
+
     const company = await this.companyRepo.findOne({
       where: { id: companyId },
       relations: {

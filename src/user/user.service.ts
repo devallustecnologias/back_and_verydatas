@@ -296,6 +296,7 @@ export class UserService {
         page = 1,
         limit = 10,
         search?: string,
+        currentUser?: { sub: string; role: string; },
     ) {
         const query =
             this.userRepo.createQueryBuilder(
@@ -311,6 +312,27 @@ export class UserService {
                 'user.plan',
                 'plan',
             );
+
+        // ISOLAMENTO POR EMPRESA (Multi-Tenant)
+        // master vê todos; empresa/operador veem apenas sua empresa e nunca masters
+        if (currentUser && currentUser.role !== UserRole.MASTER) {
+            // Busca o usuário logado para pegar o company_id dele
+            const loggedUser = await this.userRepo.findOne({
+                where: { uid: currentUser.sub },
+                relations: ['company'],
+            });
+
+            if (loggedUser?.company) {
+                query.andWhere('company.id = :companyId', {
+                    companyId: loggedUser.company.id,
+                });
+            }
+
+            // Nunca expõe usuários MASTER para roles inferiores
+            query.andWhere('user.role != :masterRole', {
+                masterRole: UserRole.MASTER,
+            });
+        }
 
         // BUSCA POR NOME
         if (search) {

@@ -12,6 +12,7 @@ export class UserController {
     constructor(private readonly userService: UserService) { }
 
     @Get("all")
+    @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Listar usuários com paginação' })
 
     @ApiQuery({
@@ -28,12 +29,15 @@ export class UserController {
         limit: number,
 
         @Query('search')
-        search?: string,
+        search: string | undefined,
+
+        @User() currentUser: any,
     ) {
         return this.userService.findAll(
             page,
             limit,
             search,
+            currentUser,
         );
     }
 

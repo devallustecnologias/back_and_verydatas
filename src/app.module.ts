@@ -6,12 +6,13 @@ import { CompanyModule } from './company/company.module';
 import { PermissionModule } from './entities/permission/permission.module';
 import { PlanModule } from './entities/plan/plan.module';
 import { UserModule } from './user/user.module';
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { CompanyTenantMiddleware } from './middleware/company-tenant.middleware';
 
 @Module({
   imports: [
@@ -51,4 +52,10 @@ import { APP_GUARD } from '@nestjs/core';
     },
   ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(CompanyTenantMiddleware)
+      .forRoutes('*');
+  }
+}

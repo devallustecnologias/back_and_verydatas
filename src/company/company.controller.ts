@@ -2,86 +2,34 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Body,
   Param,
-  Delete,
-  Put,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
-import { Company } from './company.entity';
 import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
+import { Company } from './company.entity';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { User } from 'src/auth/user.decorator';
 
 @ApiTags('Companies')
-@Controller('companies')
+@Controller('company')
+@UseGuards(JwtAuthGuard)
 export class CompanyController {
-  constructor(private readonly companyService: CompanyService) { }
-
-  @Get('user/balances')
-  @ApiOperation({
-    summary: 'Lista usuários com saldo',
-    description:
-      'Retorna usuários paginados junto com o saldo da carteira.',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    example: 10,
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    example: 'Lucas',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista paginada de usuários com saldo',
-    schema: {
-      example: {
-        data: [
-          {
-            uid: 'd4f64555-1eb2-457f-a9b7-bf56711ce65f',
-            username: 'Lucas',
-            email: 'lucas@email.com',
-            role: 'operador',
-            company: {
-              id: 1,
-              name: 'Minha Empresa LTDA',
-              domain: 'minhaempresa',
-            },
-            totalCredit: 1000,
-            availableCredit: 750,
-          },
-        ],
-        total: 1,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
-      },
-    },
-  })
-  async findUsersWithBalance(
-    @Query('page') page = '1',
-    @Query('limit') limit = '10',
-    @Query('search') search?: string,
-  ) {
-    return this.companyService.findUsersWithBalance(
-      Number(page),
-      Number(limit),
-      search,
-    );
-  }
+  constructor(private readonly companyService: CompanyService) {}
 
   @Get('balances')
   @ApiOperation({
@@ -115,11 +63,39 @@ export class CompanyController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Query('search') search?: string,
+    @User() currentUser?: any,
   ) {
     return this.companyService.findCompaniesWithBalance(
       Number(page),
       Number(limit),
       search,
+      currentUser,
+    );
+  }
+
+  @Get('balances/users')
+  @ApiOperation({
+    summary: 'Lista usuários com saldo',
+    description: 'Retorna usuários paginados junto com o saldo da carteira.',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de usuários com saldo',
+  })
+  async findUsersWithBalance(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+    @User() currentUser?: any,
+  ) {
+    return this.companyService.findUsersWithBalance(
+      Number(page),
+      Number(limit),
+      search,
+      currentUser,
     );
   }
 
@@ -180,18 +156,19 @@ export class CompanyController {
     @Param('userId') userId: string,
     @Query('historyPage') historyPage = '1',
     @Query('historyLimit') historyLimit = '10',
+    @User() currentUser?: any,
   ) {
     return this.companyService.findUserCreditDetails(
       userId,
       Number(historyPage),
       Number(historyLimit),
+      currentUser,
     );
   }
 
   @Get('historic-company/:companyId')
   @ApiOperation({
-    summary:
-      'Buscar histórico de créditos da empresa',
+    summary: 'Buscar histórico de créditos da empresa',
   })
   @ApiResponse({
     status: 200,
@@ -213,9 +190,7 @@ export class CompanyController {
         },
 
         totalCredit: 5000,
-
         totalDebit: 1200,
-
         availableCredit: 3800,
 
         history: {
@@ -224,32 +199,24 @@ export class CompanyController {
               id: 12,
               amount: 1000,
               type: 'CREDIT',
-              description:
-                'Crédito adicionado manualmente',
+              description: 'Crédito adicionado manualmente',
               origin: 'AJUSTE',
               referenceId: null,
-              createdAt:
-                '2026-05-23T18:20:00.000Z',
+              createdAt: '2026-05-23T18:20:00.000Z',
             },
             {
               id: 11,
               amount: 200,
               type: 'DEBIT',
-              description:
-                'Consumo da operação XYZ',
+              description: 'Consumo da operação XYZ',
               origin: 'CONSUMO',
               referenceId: 'OP-9281',
-              createdAt:
-                '2026-05-23T17:10:00.000Z',
+              createdAt: '2026-05-23T17:10:00.000Z',
             },
           ],
-
           total: 2,
-
           page: 1,
-
           limit: 10,
-
           totalPages: 1,
         },
       },
@@ -259,11 +226,13 @@ export class CompanyController {
     @Param('companyId') companyId: string,
     @Query('historyPage') historyPage = '1',
     @Query('historyLimit') historyLimit = '10',
+    @User() currentUser?: any,
   ) {
     return this.companyService.findCreditDetailsCompany(
       companyId,
       Number(historyPage),
       Number(historyLimit),
+      currentUser,
     );
   }
 
@@ -284,14 +253,37 @@ export class CompanyController {
       ],
     },
   })
-  findAll(): Promise<Company[]> {
-    return this.companyService.findAll();
+  findAll(@User() currentUser?: any): Promise<Company[]> {
+    return this.companyService.findAll(currentUser);
+  }
+
+  @Get('branding/info')
+  @ApiOperation({ summary: 'Obter branding da empresa pelo domínio/tenant da requisição' })
+  async getBrandingInfo(@Req() req: any) {
+    const company = req.company as Company;
+    if (!company) {
+      return {
+        logoUrl: '/logo.png',
+        slogan: 'O crédito que respeita você',
+        primaryColor: '#1F2937',
+        name: 'Devallus',
+      };
+    }
+    return {
+      logoUrl: company.logoUrl || '/logo.png',
+      slogan: company.slogan || 'O crédito que respeita você',
+      primaryColor: company.primaryColor || '#1F2937',
+      name: company.name,
+    };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Buscar empresa por ID' })
-  findOne(@Param('id') id: number): Promise<Company> {
-    return this.companyService.findOne(Number(id));
+  findOne(
+    @Param('id') id: number,
+    @User() currentUser?: any,
+  ): Promise<Company> {
+    return this.companyService.findOne(Number(id), currentUser);
   }
 
   @Post()
@@ -318,14 +310,18 @@ export class CompanyController {
   update(
     @Param('id') id: number,
     @Body() dto: UpdateCompanyDto,
+    @User() currentUser?: any,
   ): Promise<Company> {
-    return this.companyService.update(Number(id), dto);
+    return this.companyService.update(Number(id), dto, currentUser);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Remover empresa' })
-  remove(@Param('id') id: number) {
-    return this.companyService.remove(Number(id));
+  remove(
+    @Param('id') id: number,
+    @User() currentUser?: any,
+  ) {
+    return this.companyService.remove(Number(id), currentUser);
   }
 
   @Get(':id/permissions')
@@ -334,8 +330,11 @@ export class CompanyController {
     status: 200,
     description: 'Permissões da empresa',
   })
-  getCompanyPermissions(@Param('id') id: number) {
-    return this.companyService.getPermissions(Number(id));
+  getCompanyPermissions(
+    @Param('id') id: number,
+    @User() currentUser?: any,
+  ) {
+    return this.companyService.getPermissions(Number(id), currentUser);
   }
 
   @Get('cnpj/:cnpj')

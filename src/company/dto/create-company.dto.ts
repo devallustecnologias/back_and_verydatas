@@ -18,6 +18,20 @@ export class CreateCompanyDto {
   logoUrl?: string;
 
   @ApiProperty({
+    example: 'O crédito que respeita você',
+    required: false,
+    description: 'Slogan da empresa para personalização white-label',
+  })
+  slogan?: string;
+
+  @ApiProperty({
+    example: '#1F2937',
+    required: false,
+    description: 'Cor principal da empresa (hex) para personalização white-label',
+  })
+  primaryColor?: string;
+
+  @ApiProperty({
     example: 1,
     required: false,
     description: 'ID do plano da empresa',

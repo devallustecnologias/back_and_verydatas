@@ -23,6 +23,12 @@ export class Company {
   @Column({ nullable: true })
   logoUrl?: string;
 
+  @Column({ nullable: true })
+  slogan?: string;
+
+  @Column({ nullable: true, default: '#1F2937' })
+  primaryColor?: string;
+
   // Dados da empresa
   @Column({ nullable: true, unique: true })
   cnpj?: string;
