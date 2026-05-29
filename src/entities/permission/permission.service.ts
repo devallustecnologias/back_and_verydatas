@@ -30,7 +30,11 @@ export class PermissionService {
             throw new BadRequestException('Permissão já existe');
         }
 
-        const permission = this.permissionRepo.create(dto);
+        const slug = dto.key.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+        const permission = this.permissionRepo.create({
+            ...dto,
+            slug,
+        });
         return this.permissionRepo.save(permission);
     }
 
@@ -84,6 +88,7 @@ export class PermissionService {
                     'Permissão já existe',
                 );
             }
+            permission.slug = dto.key.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
         }
 
         Object.assign(permission, dto);

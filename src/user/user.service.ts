@@ -121,7 +121,7 @@ export class UserService {
 
             // monta plano customizado
             plan = this.planRepo.create({
-                name: `custom-admin-${dto.username}`,
+                name: `custom-admin-${dto.username}-${uuidv4().substring(0, 8)}`,
                 isSystem: false,
                 permissions:
                     company.plan!.permissions.filter(p =>
@@ -183,7 +183,7 @@ export class UserService {
 
             // monta plano customizado
             plan = this.planRepo.create({
-                name: `custom-${dto.username}`,
+                name: `custom-${dto.username}-${uuidv4().substring(0, 8)}`,
                 isSystem: false, //aqu apenas para diferenciar dos planos do sistema definido pelo master para nao ser listado
                 permissions: company.plan!.permissions.filter((p) =>
                     dto.permissionIds!.includes(p.id),
