@@ -296,7 +296,7 @@ export class UserService {
         page = 1,
         limit = 10,
         search?: string,
-        currentUser?: { sub: string; role: string; },
+        currentUser?: { userId: string; role: string; },
     ) {
         const query =
             this.userRepo.createQueryBuilder(
@@ -318,7 +318,7 @@ export class UserService {
         if (currentUser && currentUser.role !== UserRole.MASTER) {
             // Busca o usuário logado para pegar o company_id dele
             const loggedUser = await this.userRepo.findOne({
-                where: { uid: currentUser.sub },
+                where: { uid: currentUser.userId },
                 relations: ['company'],
             });
 

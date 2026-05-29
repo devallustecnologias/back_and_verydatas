@@ -57,7 +57,7 @@ export class CompanyService {
     page = 1,
     limit = 10,
     search?: string,
-    currentUser?: { sub: string; role: string },
+    currentUser?: { userId: string; role: string },
   ) {
     let where: any = search
       ? {
@@ -67,7 +67,7 @@ export class CompanyService {
 
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company'],
       });
       if (loggedUser?.company) {
@@ -154,14 +154,14 @@ export class CompanyService {
     page = 1,
     limit = 10,
     search?: string,
-    currentUser?: { sub: string; role: string },
+    currentUser?: { userId: string; role: string },
   ) {
     const query = this.userRepo.createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company');
 
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company'],
       });
       if (loggedUser?.company) {
@@ -266,11 +266,11 @@ export class CompanyService {
     companyId: string,
     historyPage = 1,
     historyLimit = 10,
-    currentUser?: { sub: string; role: string },
+    currentUser?: { userId: string; role: string },
   ) {
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company'],
       });
       if (!loggedUser?.company || loggedUser.company.id !== Number(companyId)) {
@@ -386,16 +386,16 @@ export class CompanyService {
     userId: string,
     historyPage = 1,
     historyLimit = 10,
-    currentUser?: { sub: string; role: string },
+    currentUser?: { userId: string; role: string },
   ) {
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company'],
       });
 
       if (currentUser.role === 'operador') {
-        if (currentUser.sub !== userId) {
+        if (currentUser.userId !== userId) {
           throw new ForbiddenException('Operador só pode visualizar seus próprios créditos');
         }
       } else if (currentUser.role === 'empresa') {
@@ -506,10 +506,10 @@ export class CompanyService {
   };
 }
 
-  async findAll(currentUser?: { sub: string; role: string }): Promise<Company[]> {
+  async findAll(currentUser?: { userId: string; role: string }): Promise<Company[]> {
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company', 'company.users', 'company.plan'],
       });
       if (loggedUser?.company) {
@@ -522,10 +522,10 @@ export class CompanyService {
     });
   }
 
-  async findOne(id: number, currentUser?: { sub: string; role: string }): Promise<Company> {
+  async findOne(id: number, currentUser?: { userId: string; role: string }): Promise<Company> {
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company'],
       });
       if (!loggedUser?.company || loggedUser.company.id !== id) {
@@ -651,11 +651,11 @@ async create(
 async update(
   id: number,
   dto: UpdateCompanyDto,
-  currentUser?: { sub: string; role: string },
+  currentUser?: { userId: string; role: string },
 ): Promise<Company> {
   if (currentUser && currentUser.role !== 'master') {
     const loggedUser = await this.userRepo.findOne({
-      where: { uid: currentUser.sub },
+      where: { uid: currentUser.userId },
       relations: ['company'],
     });
     if (!loggedUser?.company || loggedUser.company.id !== id) {
@@ -755,7 +755,7 @@ async update(
   return this.companyRepo.save(company);
 }
 
-  async remove(id: number, currentUser?: { sub: string; role: string }): Promise<void> {
+  async remove(id: number, currentUser?: { userId: string; role: string }): Promise<void> {
     if (currentUser && currentUser.role !== 'master') {
       throw new ForbiddenException('Apenas usuários MASTER podem remover empresas do sistema');
     }
@@ -771,10 +771,10 @@ async update(
     await this.companyRepo.remove(company);
   }
 
-  async getPermissions(companyId: number, currentUser?: { sub: string; role: string }) {
+  async getPermissions(companyId: number, currentUser?: { userId: string; role: string }) {
     if (currentUser && currentUser.role !== 'master') {
       const loggedUser = await this.userRepo.findOne({
-        where: { uid: currentUser.sub },
+        where: { uid: currentUser.userId },
         relations: ['company'],
       });
       if (!loggedUser?.company || loggedUser.company.id !== companyId) {
