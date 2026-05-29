@@ -14,9 +14,26 @@ import { Wallet } from 'src/ledger/walled.entity';
 import { Ledger, LedgerType } from 'src/ledger/ledger.entity';
 import { User } from 'src/entities/user/user.entity';
 import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
-import * as cnpjLib from '@cnpjs/cnpj';
 import axios from 'axios';
 import { toTitleCase } from 'src/lib/convert.to-title';
+
+function isValidCnpj(cnpj: string): boolean {
+  if (cnpj.length !== 14) return false;
+  if (/^(\d)\1+$/.test(cnpj)) return false; // ex: 00000000000000
+
+  const calc = (cnpj: string, len: number) => {
+    let sum = 0;
+    let pos = len - 7;
+    for (let i = len; i >= 1; i--) {
+      sum += parseInt(cnpj.charAt(len - i)) * pos--;
+      if (pos < 2) pos = 9;
+    }
+    const result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    return result === parseInt(cnpj.charAt(len));
+  };
+
+  return calc(cnpj, 12) && calc(cnpj, 13);
+}
 
 
 @Injectable()
@@ -785,35 +802,54 @@ async getDataByCnpj(cnpjNumber: string): Promise<CompanyCnpjDataDto> {
   const cleanCnpj = cnpjNumber.replace(/\D/g, '');
 
   if (cleanCnpj.length !== 14) {
+    throw new BadRequestException('CNPJ inválido: deve conter 14 dígitos');
+  }
+
+  const isValid = isValidCnpj(cleanCnpj);
+  if (!isValid) {
     throw new BadRequestException('CNPJ inválido');
   }
 
-  const { data } = await axios.get(
-    `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
-  );
+  try {
+    const { data } = await axios.get(
+      `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
+    );
 
-  return {
-    name: data.nome_fantasia || data.razao_social || '',
-    cnpj: data.cnpj || '',
-    corporateName: data.razao_social || '',
-    tradeName: data.nome_fantasia || '',
+    return {
+      name: data.nome_fantasia || data.razao_social || '',
+      cnpj: data.cnpj || '',
+      corporateName: data.razao_social || '',
+      tradeName: data.nome_fantasia || '',
 
-    address: `${data.descricao_tipo_de_logradouro || ''} ${data.logradouro || ''}, ${data.numero || ''}`.trim(),
-    city: data.municipio || '',
-    state: data.uf || '',
-    zipCode: data.cep || '',
+      address: `${data.descricao_tipo_de_logradouro || ''} ${data.logradouro || ''}, ${data.numero || ''}`.trim(),
+      city: data.municipio || '',
+      state: data.uf || '',
+      zipCode: data.cep || '',
 
-    companyEmail: data.email || '',
-    landlinePhone: data.ddd_telefone_1 || '',
-    whatsapp: data.ddd_telefone_1 || '',
+      companyEmail: data.email || '',
+      landlinePhone: data.ddd_telefone_1 || '',
+      whatsapp: data.ddd_telefone_1 || '',
 
-    representativeName: data.qsa?.[0]?.nome_socio || '',
-    representativeCpf: data.qsa?.[0]?.cnpj_cpf_do_socio || '',
+      representativeName: data.qsa?.[0]?.nome_socio || '',
+      representativeCpf: data.qsa?.[0]?.cnpj_cpf_do_socio || '',
 
-    contactName: data.qsa?.[0]?.nome_socio || '',
-    contactCpf: data.qsa?.[0]?.cnpj_cpf_do_socio || '',
-    contactEmail: data.email || '',
-    contactWhatsapp: data.ddd_telefone_1 || '',
-  };
+      contactName: data.qsa?.[0]?.nome_socio || '',
+      contactCpf: data.qsa?.[0]?.cnpj_cpf_do_socio || '',
+      contactEmail: data.email || '',
+      contactWhatsapp: data.ddd_telefone_1 || '',
+    };
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      throw new NotFoundException('CNPJ não encontrado na base de dados da Receita Federal');
+    }
+
+    if (status === 400) {
+      throw new BadRequestException('CNPJ inválido');
+    }
+
+    throw new BadRequestException('Não foi possível consultar o CNPJ. Tente novamente em instantes.');
+  }
 }
 }
