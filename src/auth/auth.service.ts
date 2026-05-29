@@ -60,6 +60,7 @@ export class AuthService {
     try {
       user = await this.userRepository.findOne({
         where: { email },
+        relations: ['company'],
       });
     } catch (error) {
       console.error('Erro ao buscar usuário:', error);
@@ -129,6 +130,11 @@ export class AuthService {
         email: user.email,
         role: user.role,
         isTwoFactorAuthenticationEnabled: user.isTwoFactorAuthenticationEnabled,
+        company: user.company ? {
+          id: user.company.id,
+          name: user.company.name,
+          domain: user.company.domain,
+        } : null,
       },
     };
   }
@@ -236,7 +242,10 @@ export class AuthService {
   }
 
   async authenticate2FA(userId: string, code: string) {
-    const user = await this.userRepository.findOne({ where: { uid: userId } });
+    const user = await this.userRepository.findOne({
+      where: { uid: userId },
+      relations: ['company'],
+    });
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
