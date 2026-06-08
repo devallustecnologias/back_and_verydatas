@@ -32,6 +32,7 @@ export class WalletService {
     userId: string,
     amount: number,
     description?: string,
+    actor?: { userId?: string; username?: string },
   ) {
     if (amount <= 0) {
       throw new BadRequestException('Valor inválido');
@@ -101,6 +102,8 @@ export class WalletService {
         origin: LedgerOrigin.TRANSFER,
         description:
           description || `Crédito transferido para o usuário ${userId}`,
+        performedById: actor?.userId,
+        performedByName: actor?.username,
       });
 
       const userLedger = await ledgerRepo.save({
@@ -110,6 +113,8 @@ export class WalletService {
         origin: LedgerOrigin.TRANSFER,
         description:
           description || `Crédito recebido da empresa ${companyId}`,
+        performedById: actor?.userId,
+        performedByName: actor?.username,
       });
 
       return {
@@ -129,6 +134,7 @@ export class WalletService {
     walletId: string,
     amount: number,
     description?: string,
+    actor?: { userId?: string; username?: string },
   ) {
     if (amount <= 0) {
       throw new BadRequestException('Valor inválido');
@@ -153,6 +159,8 @@ export class WalletService {
         origin: LedgerOrigin.AJUSTE,
         description:
           description || 'Crédito adicionado manualmente',
+        performedById: actor?.userId,
+        performedByName: actor?.username,
       });
 
       return {
@@ -168,6 +176,7 @@ export class WalletService {
     walletId: string,
     amount: number,
     description?: string,
+    actor?: { userId?: string; username?: string },
   ) {
     if (amount <= 0) {
       throw new BadRequestException('Valor invalido');
@@ -205,6 +214,8 @@ export class WalletService {
         type: LedgerType.DEBIT,
         origin: LedgerOrigin.ESTORNO,
         description: description || 'Estorno de credito',
+        performedById: actor?.userId,
+        performedByName: actor?.username,
       });
 
       return { success: true, walletId, amount, ledger };
@@ -291,6 +302,7 @@ export class WalletService {
     fromWalletId: string,
     toWalletId: string,
     amount: number,
+    actor?: { userId?: string; username?: string },
   ) {
     if (amount <= 0) {
       throw new BadRequestException('Valor inválido');
@@ -336,6 +348,8 @@ export class WalletService {
         type: LedgerType.DEBIT,
         origin: LedgerOrigin.TRANSFER,
         description: `Transferência enviada para ${toWalletId}`,
+        performedById: actor?.userId,
+        performedByName: actor?.username,
       });
 
       // CREDIT destino
@@ -345,6 +359,8 @@ export class WalletService {
         type: LedgerType.CREDIT,
         origin: LedgerOrigin.TRANSFER,
         description: `Transferência recebida de ${fromWalletId}`,
+        performedById: actor?.userId,
+        performedByName: actor?.username,
       });
 
       return {

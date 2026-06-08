@@ -355,7 +355,7 @@ async findUserCreditDetails(
   userId: string,
   historyPage = 1,
   historyLimit = 10,
-  currentUser?: { role?: string; companyId?: number },
+  currentUser?: { role?: string; companyId?: number; userId?: string },
 ) {
   const user = await this.userRepo.findOne({
     where: {
@@ -364,8 +364,13 @@ async findUserCreditDetails(
     relations: ['company'],
   });
 
+  // §11 operador só pode ver o próprio histórico
+  if (currentUser && currentUser.role === 'operador' && userId !== currentUser.userId) {
+    throw new ForbiddenException('Acesso negado: operador só pode visualizar o próprio histórico');
+  }
+
   // TENANT SCOPING: empresa só pode ver usuários da própria company
-  if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+  if (currentUser && currentUser.role !== 'master' && currentUser.role !== 'operador' && currentUser.companyId) {
     if (!user || user.company?.id !== currentUser.companyId) {
       throw new ForbiddenException('Acesso negado a este usuário');
     }

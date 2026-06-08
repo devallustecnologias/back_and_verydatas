@@ -27,11 +27,12 @@ export class CreditoController {
     summary:
       'Adicionar créditos para usuário ou empresa',
   })
-  addCredits(@Body() dto: AddCreditsDto) {
+  addCredits(@Body() dto: AddCreditsDto, @User() user: any) {
     return this.creditoService.addCredits(
       dto.userIdOrCompanyId,
       dto.amount,
       dto.description,
+      user,
     );
   }
 

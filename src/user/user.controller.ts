@@ -87,13 +87,14 @@ export class UserController {
         return this.userService.update(uid, dto);
     }
 
-    @Roles(UserRole.MASTER, UserRole.EMPRESA)
+    @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
     @Get(':uid')
     @ApiOperation({ summary: 'Buscar usuário por UID' })
     findOne(
         @Param('uid') uid: string,
+        @User() currentUser: any,
     ) {
-        return this.userService.findOne(uid);
+        return this.userService.findOne(uid, currentUser);
     }
 
     @Roles(UserRole.MASTER, UserRole.EMPRESA)
