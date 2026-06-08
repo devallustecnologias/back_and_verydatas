@@ -95,10 +95,7 @@ export class CreditoService {
             throw new BadRequestException('Valor invalido');
         }
 
-        // §6 motivo obrigatório no estorno
-        if (!description || description.trim() === '') {
-            throw new BadRequestException('Motivo obrigatório para estorno');
-        }
+        // motivo (description) é opcional no estorno
 
         const isCompany = !isNaN(Number(userIdOrCompanyId));
 
