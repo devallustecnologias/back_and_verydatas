@@ -114,4 +114,20 @@ export class User {
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   deletedAt?: Date;
+
+  // §15 — Lockout: tentativas de login falhas
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts!: number;
+
+  // §15 — Lockout: bloqueio temporário até esta data
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil?: Date | null;
+
+  // §15 — Sessão única: ID da sessão ativa
+  @Column({ type: 'varchar', nullable: true })
+  currentSessionId?: string | null;
+
+  // §15 — Inatividade: última atividade registrada
+  @Column({ type: 'timestamp', nullable: true })
+  lastActivityAt?: Date | null;
 }
