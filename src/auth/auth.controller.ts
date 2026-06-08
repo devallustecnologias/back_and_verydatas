@@ -22,10 +22,21 @@ import { JwtAuthGuard } from "./jwt-auth.guard";
 import { User, UserRole } from "../entities/user/user.entity";
 import { Public } from "./decorators/public.decorator";
 import { Roles } from "./decorators/roles.decorator";
+import { AuditService } from "src/audit/audit.service";
+import { User as UserDecorator } from "./user.decorator";
+
+/** Normaliza IPv6-mapped (::ffff:x.x.x.x) para IPv4 puro */
+function normalizeIp(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return raw.startsWith('::ffff:') ? raw.slice(7) : raw;
+}
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly auditService: AuditService,
+  ) {}
 
   // =========================
   // REGISTER
@@ -116,6 +127,27 @@ export class AuthController {
       console.log(error)
       throw error;
     }
+  }
+
+  // =========================
+  // LOGOUT
+  // =========================
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Logout — registra evento de auditoria (JWT stateless)',
+  })
+  @ApiResponse({ status: 200, schema: { example: { success: true } } })
+  @Post('logout')
+  async logout(@Ip() ip: string, @UserDecorator() user: any) {
+    void this.auditService.log({
+      action: 'LOGOUT',
+      userId: user?.userId ?? user?.sub ?? null,
+      username: user?.username ?? null,
+      companyId: user?.companyId ?? null,
+      ip: normalizeIp(ip),
+      detail: 'Logout',
+    });
+    return { success: true };
   }
 
   // =========================
