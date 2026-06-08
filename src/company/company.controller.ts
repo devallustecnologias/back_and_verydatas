@@ -211,7 +211,12 @@ export class CompanyController {
   @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get(':id')
   @ApiOperation({ summary: 'Buscar empresa por ID' })
-  findOne(@Param('id') id: number): Promise<Company> {
+  findOne(@Param('id') id: number, @User() user?: any): Promise<Company> {
+    if (user && user.role !== 'master') {
+      if (user.companyId == null || Number(id) !== user.companyId) {
+        throw new ForbiddenException('Acesso negado a esta empresa');
+      }
+    }
     return this.companyService.findOne(Number(id));
   }
 
@@ -259,7 +264,12 @@ export class CompanyController {
     status: 200,
     description: 'Permissões da empresa',
   })
-  getCompanyPermissions(@Param('id') id: number) {
+  getCompanyPermissions(@Param('id') id: number, @User() user?: any) {
+    if (user && user.role !== 'master') {
+      if (user.companyId == null || Number(id) !== user.companyId) {
+        throw new ForbiddenException('Acesso negado a esta empresa');
+      }
+    }
     return this.companyService.getPermissions(Number(id));
   }
 

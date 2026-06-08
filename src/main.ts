@@ -19,6 +19,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET obrigatorio em producao');
+  }
+
   await app.listen(process.env.PORT ?? 8007);
   console.log(`Application is running on: ${await app.getUrl()}`);
 }

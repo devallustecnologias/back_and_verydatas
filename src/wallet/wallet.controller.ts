@@ -21,7 +21,7 @@ export class WalletController {
   constructor(private readonly walletService: WalletService) { }
 
   // criar wallet
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Post()
   @ApiOperation({ summary: 'Criar wallet (empresa ou usuário)' })
   create(@Body() dto: CreateWalletDto) {
@@ -29,7 +29,7 @@ export class WalletController {
   }
 
   //  transferência
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Post('transfer')
   @ApiOperation({ summary: 'Transferir créditos entre wallets' })
   transfer(@Body() dto: TransferWalletDto) {
@@ -40,7 +40,7 @@ export class WalletController {
     );
   }
 
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Post('add-credits')
   @ApiOperation({ summary: 'Adicionar créditos manualmente em uma wallet' })
   addCredits(@Body() dto: AddCreditsWalletDto) {
@@ -52,7 +52,7 @@ export class WalletController {
   }
 
   //  saldo
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Get(':id/balance')
   @ApiOperation({ summary: 'Consultar saldo da wallet' })
   getBalance(@Param('id') id: string) {
@@ -60,7 +60,7 @@ export class WalletController {
   }
 
   //  extrato
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Get(':id/ledger')
   @ApiOperation({ summary: 'Extrato da wallet' })
   getLedger(@Param('id') id: string) {
