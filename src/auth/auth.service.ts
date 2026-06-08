@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { User, UserRole, UserStatus } from '../entities/user/user.entity';
 import { CompanyStatus } from '../company/company.entity';
 import { OAuth2Client } from 'google-auth-library';
@@ -111,6 +112,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // §15 — Lockout: verifica bloqueio ativo antes de qualquer validação
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Conta temporariamente bloqueada por tentativas de login');
+    }
+
     let passwordMatch: boolean;
     try {
       passwordMatch = await bcrypt.compare(password, user.password);
@@ -120,6 +126,15 @@ export class AuthService {
     }
 
     if (!passwordMatch) {
+      // §15 — Lockout: incrementa contador; ao atingir 3, bloqueia 15 minutos
+      user.failedLoginAttempts = (user.failedLoginAttempts ?? 0) + 1;
+      if (user.failedLoginAttempts >= 3) {
+        const lockedUntil = new Date();
+        lockedUntil.setMinutes(lockedUntil.getMinutes() + 15);
+        user.lockedUntil = lockedUntil;
+        user.failedLoginAttempts = 0;
+      }
+      await this.userRepository.save(user);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -176,12 +191,21 @@ export class AuthService {
     const permissions = await this.userService.getUserPermissions(user.uid);
     console.log('User with permissions:', permissions);
 
+    // §15 — Login OK: zera contador de falhas e lockout; gera sessão única
+    const sessionId = randomUUID();
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.currentSessionId = sessionId;
+    user.lastActivityAt = new Date();
+    await this.userRepository.save(user);
+
     const payload = {
       sub: user.uid,
       username: user.username,
       role: user.role,
       companyId: user.company?.id ?? null,
       permissions,
+      sid: sessionId, // §15 — sessão única
     };
 
     let token: string;
@@ -203,5 +227,10 @@ export class AuthService {
     });
 
     return { accessToken: token };
+  }
+
+  // §15 — Sessão única: limpa currentSessionId ao deslogar
+  async logout(userId: string): Promise<void> {
+    await this.userRepository.update({ uid: userId }, { currentSessionId: null });
   }
 }

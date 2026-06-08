@@ -139,9 +139,14 @@ export class AuthController {
   @ApiResponse({ status: 200, schema: { example: { success: true } } })
   @Post('logout')
   async logout(@Ip() ip: string, @UserDecorator() user: any) {
+    // §15 — Sessão única: invalida currentSessionId no banco
+    const userId = user?.userId ?? user?.sub ?? null;
+    if (userId) {
+      void this.authService.logout(userId);
+    }
     void this.auditService.log({
       action: 'LOGOUT',
-      userId: user?.userId ?? user?.sub ?? null,
+      userId,
       username: user?.username ?? null,
       companyId: user?.companyId ?? null,
       ip: normalizeIp(ip),
