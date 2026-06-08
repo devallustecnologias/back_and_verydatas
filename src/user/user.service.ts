@@ -15,6 +15,8 @@ import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { Plan } from 'src/entities/plan/plan.entity';
 import { Permission } from 'src/entities/permission/permission.entity';
+import { Department } from 'src/entities/department/department.entity';
+import { Cargo } from 'src/entities/cargo/cargo.entity';
 
 @Injectable()
 export class UserService {
@@ -30,6 +32,12 @@ export class UserService {
 
         @InjectRepository(Permission)
         private readonly permissionRepo: Repository<Permission>,
+
+        @InjectRepository(Department)
+        private readonly departmentRepo: Repository<Department>,
+
+        @InjectRepository(Cargo)
+        private readonly cargoRepo: Repository<Cargo>,
     ) { }
 
     private async hashPassword(password: string) {
@@ -53,6 +61,44 @@ export class UserService {
         }
 
         return company;
+    }
+
+    private async resolveDepartmentAndCargo(
+        dto: { departmentId?: number; cargoId?: number },
+        companyId: number,
+    ): Promise<{ department?: Department; cargo?: Cargo }> {
+        let department: Department | undefined;
+        let cargo: Cargo | undefined;
+
+        if (dto.departmentId) {
+            const dep = await this.departmentRepo.findOne({
+                where: { id: dto.departmentId },
+                relations: ['company'],
+            });
+            if (!dep) {
+                throw new NotFoundException('Departamento não encontrado');
+            }
+            if (dep.company.id !== companyId) {
+                throw new BadRequestException('Departamento não pertence à empresa do usuário');
+            }
+            department = dep;
+        }
+
+        if (dto.cargoId) {
+            const car = await this.cargoRepo.findOne({
+                where: { id: dto.cargoId },
+                relations: ['company', 'department'],
+            });
+            if (!car) {
+                throw new NotFoundException('Cargo não encontrado');
+            }
+            if (car.company.id !== companyId) {
+                throw new BadRequestException('Cargo não pertence à empresa do usuário');
+            }
+            cargo = car;
+        }
+
+        return { department, cargo };
     }
 
     async createMaster(
@@ -133,6 +179,8 @@ export class UserService {
             plan = await this.planRepo.save(plan);
         }
 
+        const { department, cargo } = await this.resolveDepartmentAndCargo(dto, company!.id);
+
         const user = this.userRepo.create({
             uid: uuidv4(),
             username: dto.username,
@@ -146,6 +194,8 @@ export class UserService {
                 plan ??
                 company.plan ??
                 null,
+            department: department ?? null,
+            cargo: cargo ?? null,
         });
 
         return this.userRepo.save(user);
@@ -193,6 +243,8 @@ export class UserService {
 
             plan = await this.planRepo.save(plan);
         }
+        const { department, cargo } = await this.resolveDepartmentAndCargo(dto, company!.id);
+
         const user = this.userRepo.create({
             uid: uuidv4(),
             username: dto.username,
@@ -203,6 +255,8 @@ export class UserService {
             role: UserRole.OPERADOR,
             company: company ?? undefined,
             plan,
+            department: department ?? null,
+            cargo: cargo ?? null,
         });
 
         return this.userRepo.save(user);
@@ -241,6 +295,13 @@ export class UserService {
             }
 
             user.company = company;
+        }
+
+        const targetCompanyId = user.company?.id;
+        if (targetCompanyId && (dto.departmentId || dto.cargoId)) {
+            const { department, cargo } = await this.resolveDepartmentAndCargo(dto, targetCompanyId);
+            if (department !== undefined) user.department = department;
+            if (cargo !== undefined) user.cargo = cargo;
         }
 
         if (dto.permissionIds) {

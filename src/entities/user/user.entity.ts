@@ -14,6 +14,8 @@ import {
 } from 'typeorm';
 
 import { Plan } from '../plan/plan.entity';
+import { Department } from '../department/department.entity';
+import { Cargo } from '../cargo/cargo.entity';
 
 export enum UserRole {
   MASTER = 'master',
@@ -101,6 +103,14 @@ export class User {
     type: 'timestamp',
   })
   createdAt!: Date;
+
+  @ManyToOne(() => Department, { nullable: true })
+  @JoinColumn({ name: 'department_id' })
+  department?: Department | null;
+
+  @ManyToOne(() => Cargo, { nullable: true })
+  @JoinColumn({ name: 'cargo_id' })
+  cargo?: Cargo | null;
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   deletedAt?: Date;

@@ -13,7 +13,7 @@ export class Plan {
   name!: string;
 
   @ApiProperty({ type: () => [Permission] })
-  @ManyToMany(() => Permission, { eager: true })
+  @ManyToMany(() => Permission)
   @JoinTable()
   permissions!: Permission[];
 
