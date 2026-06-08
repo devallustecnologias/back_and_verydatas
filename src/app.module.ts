@@ -6,6 +6,7 @@ import { CompanyModule } from './company/company.module';
 import { PermissionModule } from './entities/permission/permission.module';
 import { PlanModule } from './entities/plan/plan.module';
 import { UserModule } from './user/user.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -24,6 +25,7 @@ import { RolesGuard } from './auth/roles.guard';
     PermissionModule,
     PlanModule,
     UserModule,
+    DashboardModule,
     AuthModule,
     ConfigModule.forRoot({
       isGlobal: true
