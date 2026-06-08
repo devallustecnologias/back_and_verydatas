@@ -79,6 +79,9 @@ export class Company {
   @Column({ nullable: true })
   contactWhatsapp?: string;
 
+  @Column({ nullable: true })
+  aneps?: string;
+
   @Column({
     type: 'enum',
     enum: CompanyStatus,

@@ -76,6 +76,8 @@ export class PlanService {
       name: dto.name,
       isSystem: dto.isSystem ?? false,
       permissions,
+      creditLimit: dto.creditLimit ?? 0,
+      userLimit: dto.userLimit ?? 0,
     });
 
     return this.planRepo.save(plan);
@@ -99,6 +101,14 @@ export class PlanService {
 
     plan.name = dto.name;
     plan.permissions = permissions;
+
+    if (dto.creditLimit !== undefined) {
+      plan.creditLimit = dto.creditLimit;
+    }
+
+    if (dto.userLimit !== undefined) {
+      plan.userLimit = dto.userLimit;
+    }
 
     return this.planRepo.save(plan);
   }

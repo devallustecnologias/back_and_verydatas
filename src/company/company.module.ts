@@ -8,9 +8,10 @@ import { Plan } from 'src/entities/plan/plan.entity';
 import { Ledger } from 'src/ledger/ledger.entity';
 import { Wallet } from 'src/ledger/walled.entity';
 import { User } from 'src/entities/user/user.entity';
+import { WalletModule } from 'src/wallet/wallet.module';
 
 @Module({
-      imports: [TypeOrmModule.forFeature([Company, Plan, Ledger, Wallet, User]),],
+      imports: [TypeOrmModule.forFeature([Company, Plan, Ledger, Wallet, User]), WalletModule],
     controllers: [
         CompanyController,],
     providers: [

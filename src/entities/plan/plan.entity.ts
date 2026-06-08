@@ -26,4 +26,12 @@ export class Plan {
   @ApiProperty()
   @Column({ default: false })
   isSystem!: boolean;
+
+  @ApiProperty({ default: 0 })
+  @Column({ type: 'int', default: 0 })
+  creditLimit!: number;
+
+  @ApiProperty({ default: 0 })
+  @Column({ type: 'int', default: 0 })
+  userLimit!: number;
 }
