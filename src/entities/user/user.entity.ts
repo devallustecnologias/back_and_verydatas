@@ -6,6 +6,7 @@ import { Company } from 'src/company/company.entity';
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -18,6 +19,13 @@ export enum UserRole {
   MASTER = 'master',
   EMPRESA = 'empresa',
   OPERADOR = 'operador',
+}
+
+export enum UserStatus {
+  ATIVO = 'ATIVO',
+  BLOQUEADO = 'BLOQUEADO',
+  SUSPENSO = 'SUSPENSO',
+  EXCLUIDO = 'EXCLUIDO',
 }
 
 @Entity()
@@ -80,9 +88,20 @@ export class User {
   @JoinColumn({ name: 'plan_id' })
   plan?: Plan | null;
 
+  @ApiProperty({ enum: UserStatus })
+  @Column({
+    type: 'enum',
+    enum: UserStatus,
+    default: UserStatus.ATIVO,
+  })
+  status!: UserStatus;
+
   @ApiProperty()
   @CreateDateColumn({
     type: 'timestamp',
   })
   createdAt!: Date;
+
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt?: Date;
 }

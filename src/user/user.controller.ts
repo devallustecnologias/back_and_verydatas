@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Put, Param, Delete, Get, UseGuards, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Body, Put, Patch, Param, Delete, Get, UseGuards, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { UserService } from './user.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/user.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -93,6 +94,17 @@ export class UserController {
         @Param('uid') uid: string,
     ) {
         return this.userService.findOne(uid);
+    }
+
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
+    @Patch(':uid/status')
+    @ApiOperation({ summary: 'Alterar status do usuário (ATIVO/BLOQUEADO/SUSPENSO)' })
+    updateStatus(
+        @Param('uid') uid: string,
+        @Body() dto: UpdateUserStatusDto,
+        @User() user: any,
+    ) {
+        return this.userService.updateStatus(uid, dto.status, user);
     }
 
     @Roles(UserRole.MASTER, UserRole.EMPRESA)

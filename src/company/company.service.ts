@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Company } from './company.entity';
+import { Company, CompanyStatus } from './company.entity';
 import { ILike, Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -667,7 +667,13 @@ async update(
       );
     }
 
-    await this.companyRepo.remove(company);
+    await this.companyRepo.softRemove(company);
+  }
+
+  async updateStatus(id: number, status: CompanyStatus): Promise<Company> {
+    const company = await this.findOne(id);
+    company.status = status;
+    return this.companyRepo.save(company);
   }
   async getPermissions(companyId: number) {
     const company = await this.companyRepo.findOne({

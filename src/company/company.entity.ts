@@ -7,7 +7,13 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  DeleteDateColumn,
 } from 'typeorm';
+
+export enum CompanyStatus {
+  ATIVA = 'ATIVA',
+  BLOQUEADA = 'BLOQUEADA',
+}
 
 @Entity('company')
 export class Company {
@@ -73,10 +79,20 @@ export class Company {
   @Column({ nullable: true })
   contactWhatsapp?: string;
 
+  @Column({
+    type: 'enum',
+    enum: CompanyStatus,
+    default: CompanyStatus.ATIVA,
+  })
+  status!: CompanyStatus;
+
   @OneToMany(() => User, (user) => user.company)
   users!: User[];
 
   @ManyToOne(() => Plan, { nullable: true })
   @JoinColumn({ name: 'plan_id' })
   plan?: Plan | null;
+
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt?: Date;
 }

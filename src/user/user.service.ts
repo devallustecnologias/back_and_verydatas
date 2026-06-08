@@ -1,6 +1,7 @@
 import {
     Injectable,
     BadRequestException,
+    ForbiddenException,
     NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Company } from 'src/company/company.entity';
-import { User, UserRole } from 'src/entities/user/user.entity';
+import { User, UserRole, UserStatus } from 'src/entities/user/user.entity';
 import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { Plan } from 'src/entities/plan/plan.entity';
@@ -276,7 +277,46 @@ export class UserService {
             throw new BadRequestException('Não é permitido remover MASTER');
         }
 
-        await this.userRepo.remove(user);
+        user.status = UserStatus.EXCLUIDO;
+        await this.userRepo.save(user);
+        await this.userRepo.softRemove(user);
+    }
+
+    async updateStatus(
+        uid: string,
+        status: UserStatus,
+        currentUser: { role?: string; companyId?: number },
+    ): Promise<User> {
+        if (status === UserStatus.EXCLUIDO) {
+            throw new BadRequestException(
+                'Use DELETE para excluir usuários. Este endpoint aceita apenas ATIVO, BLOQUEADO ou SUSPENSO.',
+            );
+        }
+
+        const user = await this.userRepo.findOne({
+            where: { uid },
+            relations: ['company'],
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuário não encontrado');
+        }
+
+        if (user.role === UserRole.MASTER) {
+            throw new BadRequestException('Não é permitido alterar o status de usuário MASTER');
+        }
+
+        if (currentUser.role !== UserRole.MASTER) {
+            if (
+                currentUser.companyId == null ||
+                user.company?.id !== currentUser.companyId
+            ) {
+                throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
+            }
+        }
+
+        user.status = status;
+        return this.userRepo.save(user);
     }
     async getUserPermissions(userId: string): Promise<Permission[]> {
         const user = await this.userRepo.findOne({

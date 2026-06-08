@@ -6,12 +6,14 @@ import {
   Param,
   Delete,
   Put,
+  Patch,
   Query,
   ForbiddenException,
 } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { UpdateCompanyStatusDto } from './dto/update-company-status.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { Company } from './company.entity';
 import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
@@ -248,6 +250,16 @@ export class CompanyController {
     @Body() dto: UpdateCompanyDto,
   ): Promise<Company> {
     return this.companyService.update(Number(id), dto);
+  }
+
+  @Roles(UserRole.MASTER)
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Alterar status da empresa (ATIVA/BLOQUEADA)' })
+  updateStatus(
+    @Param('id') id: number,
+    @Body() dto: UpdateCompanyStatusDto,
+  ) {
+    return this.companyService.updateStatus(Number(id), dto.status);
   }
 
   @Roles(UserRole.MASTER)
