@@ -32,6 +32,12 @@ export class Ledger {
   @Column({ nullable: true })
   referenceId?: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  performedById?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  performedByName?: string;
+
   @ManyToOne(() => Wallet)
   wallet!: Wallet;
 

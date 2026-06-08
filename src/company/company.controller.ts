@@ -135,7 +135,7 @@ export class CompanyController {
     );
   }
 
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
   @Get('historic-user/:userId')
   @ApiOperation({
     summary: 'Buscar histórico de créditos do usuário',

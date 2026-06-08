@@ -37,6 +37,7 @@ export class CreditoService {
         userIdOrCompanyId: string,
         amount: number,
         description?: string,
+        currentUser?: CurrentUser,
     ) {
         if (amount <= 0) {
             throw new BadRequestException('Valor inválido');
@@ -72,10 +73,15 @@ export class CreditoService {
             wallet = await this.walletRepo.save(wallet);
         }
 
+        const actor = currentUser
+            ? { userId: currentUser.userId, username: currentUser.username }
+            : undefined;
+
         return this.walletService.addCredits(
             wallet.id,
             amount,
             description,
+            actor,
         );
     }
 
@@ -87,6 +93,11 @@ export class CreditoService {
     ) {
         if (amount <= 0) {
             throw new BadRequestException('Valor invalido');
+        }
+
+        // §6 motivo obrigatório no estorno
+        if (!description || description.trim() === '') {
+            throw new BadRequestException('Motivo obrigatório para estorno');
         }
 
         const isCompany = !isNaN(Number(userIdOrCompanyId));
@@ -118,7 +129,11 @@ export class CreditoService {
             throw new BadRequestException('Carteira nao encontrada para estorno');
         }
 
-        return this.walletService.estornarCredits(wallet.id, amount, description);
+        const actor = currentUser
+            ? { userId: currentUser.userId, username: currentUser.username }
+            : undefined;
+
+        return this.walletService.estornarCredits(wallet.id, amount, description, actor);
     }
 
     async addCreditUser(
@@ -144,6 +159,10 @@ export class CreditoService {
             }
         }
 
-        return this.walletService.addCreditUser(companyId, userId, amount, description);
+        const actor = currentUser
+            ? { userId: currentUser.userId, username: currentUser.username }
+            : undefined;
+
+        return this.walletService.addCreditUser(companyId, userId, amount, description, actor);
     }
 }

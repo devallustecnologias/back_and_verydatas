@@ -284,7 +284,12 @@ export class UserService {
 
         return this.userRepo.save(user);
     }
-    async findOne(uid: string): Promise<User> {
+    async findOne(uid: string, currentUser?: { role?: string; userId?: string }): Promise<User> {
+        // §11 operador só pode ver o próprio registro
+        if (currentUser && currentUser.role === 'operador' && uid !== currentUser.userId) {
+            throw new ForbiddenException('Acesso negado: operador só pode visualizar o próprio perfil');
+        }
+
         const user = await this.userRepo.findOne({
             where: { uid },
             relations: ['company', 'plan'],
@@ -420,7 +425,7 @@ export class UserService {
         page = 1,
         limit = 10,
         search?: string,
-        currentUser?: { role?: string; companyId?: number },
+        currentUser?: { role?: string; companyId?: number; userId?: string },
     ) {
         const query =
             this.userRepo.createQueryBuilder(
@@ -437,8 +442,10 @@ export class UserService {
                 'plan',
             );
 
-        // TENANT SCOPING: não-master vê só sua empresa
-        if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+        // TENANT SCOPING: não-master vê só sua empresa; operador vê só a si mesmo
+        if (currentUser && currentUser.role === 'operador') {
+            query.andWhere('user.uid = :uid', { uid: currentUser.userId });
+        } else if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
             query.andWhere('user.company_id = :companyId', {
                 companyId: currentUser.companyId,
             });
