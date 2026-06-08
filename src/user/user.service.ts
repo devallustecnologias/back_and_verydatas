@@ -121,6 +121,25 @@ export class UserService {
         return this.userRepo.save(user);
     }
 
+    private async assertUserLimit(company: { id: number; plan?: { userLimit: number } | null }): Promise<void> {
+        const plan = company.plan;
+        if (!plan || plan.userLimit <= 0) {
+            return; // sem limite configurado
+        }
+
+        // conta usuários ativos (não-EXCLUIDO e não soft-deleted) da empresa
+        const activeCount = await this.userRepo
+            .createQueryBuilder('u')
+            .where('u.company_id = :companyId', { companyId: company.id })
+            .andWhere('u.status != :excluido', { excluido: UserStatus.EXCLUIDO })
+            .andWhere('u.deleted_at IS NULL')
+            .getCount();
+
+        if (activeCount >= plan.userLimit) {
+            throw new BadRequestException('Limite de usuários do plano atingido');
+        }
+    }
+
     async createAdmin(
         dto: CreateUserDto,
     ): Promise<User> {
@@ -139,6 +158,8 @@ export class UserService {
                 'Empresa não possui plano definido',
             );
         }
+
+        await this.assertUserLimit(company!);
 
         const password = await this.hashPassword(
             dto.password,
@@ -211,6 +232,8 @@ export class UserService {
         if (company?.plan == null) {
             throw new BadRequestException('Empresa não possui plano definido');
         }
+
+        await this.assertUserLimit(company!);
 
         const password = await this.hashPassword(dto.password);
 

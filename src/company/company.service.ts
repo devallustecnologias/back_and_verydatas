@@ -17,6 +17,7 @@ import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
 import * as cnpjLib from '@cnpjs/cnpj';
 import axios from 'axios';
 import { toTitleCase } from 'src/lib/convert.to-title';
+import { WalletService } from 'src/wallet/wallet.service';
 
 
 @Injectable()
@@ -34,6 +35,8 @@ export class CompanyService {
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
+    private readonly walletService: WalletService,
   ) { }
 
   async findCompaniesWithBalance(
@@ -488,6 +491,13 @@ async findUserCreditDetails(
 async create(
   dto: CreateCompanyDto
 ): Promise<Company> {
+  // §1 ANEPS obrigatório para novas contratações
+  if (!dto.aneps || dto.aneps.trim() === '') {
+    throw new BadRequestException(
+      'ANEPS obrigatório para contratar',
+    );
+  }
+
   const exists =
     await this.companyRepo.findOne({
       where: {
@@ -534,13 +544,14 @@ async create(
       return;
     }
 
-    // campos numéricos/documentos
+    // campos numéricos/documentos e ANEPS (não aplicar title case)
     if (
       key.includes('cpf') ||
       key.includes('cnpj') ||
       key.includes('phone') ||
       key.includes('whatsapp') ||
-      key.includes('zipCode')
+      key.includes('zipCode') ||
+      key === 'aneps'
     ) {
       return;
     }
@@ -562,7 +573,31 @@ async create(
       plan,
     });
 
-  return this.companyRepo.save(company);
+  const saved = await this.companyRepo.save(company);
+
+  // §6 Provisionar créditos do plano na criação
+  if (plan && plan.creditLimit > 0) {
+    // Garantir que a wallet COMPANY exista
+    let wallet = await this.walletRepo.findOne({
+      where: { type: 'COMPANY', companyId: saved.id },
+    });
+
+    if (!wallet) {
+      wallet = this.walletRepo.create({
+        type: 'COMPANY',
+        companyId: saved.id,
+      });
+      wallet = await this.walletRepo.save(wallet);
+    }
+
+    await this.walletService.addCredits(
+      wallet.id,
+      plan.creditLimit,
+      `Créditos do plano ${plan.name}`,
+    );
+  }
+
+  return saved;
 }
 
 async update(

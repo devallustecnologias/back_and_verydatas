@@ -125,4 +125,11 @@ export class UpdateCompanyDto {
     required: false,
   })
   contactWhatsapp?: string;
+
+  @ApiProperty({
+    example: 'ANEPS-12345',
+    required: false,
+    description: 'Certificação de Crédito Consignado (ANEPS)',
+  })
+  aneps?: string;
 }
