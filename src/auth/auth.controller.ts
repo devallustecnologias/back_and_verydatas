@@ -18,7 +18,9 @@ import {
 
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
-import { User } from "../entities/user/user.entity";
+import { User, UserRole } from "../entities/user/user.entity";
+import { Public } from "./decorators/public.decorator";
+import { Roles } from "./decorators/roles.decorator";
 
 @Controller("auth")
 export class AuthController {
@@ -27,6 +29,10 @@ export class AuthController {
   // =========================
   // REGISTER
   // =========================
+  // register cria usuário com role arbitrária (inclui master) → restrito a MASTER.
+  // Primeiro master = seed/insert no banco (bootstrap). Login é a única rota @Public.
+  @Roles(UserRole.MASTER)
+  @ApiBearerAuth()
   @ApiOperation({ summary: "Register a new user" })
   @ApiResponse({ status: 201, description: "User created", type: User })
   @ApiResponse({ status: 400, description: "Bad request" })
@@ -72,6 +78,7 @@ export class AuthController {
   // =========================
   // LOGIN
   // =========================
+  @Public()
   @ApiOperation({ summary: "Login user" })
   @ApiResponse({
     status: 200,
@@ -116,7 +123,6 @@ export class AuthController {
   @ApiOperation({ summary: "Get logged user" })
   @ApiResponse({ status: 200, type: User })
   @ApiResponse({ status: 401, description: "Unauthorized" })
-  @UseGuards(JwtAuthGuard)
   @Get("me")
   me(@Req() req: any): User {
     console.log(req.user)

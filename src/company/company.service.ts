@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from './company.entity';
@@ -39,12 +40,18 @@ export class CompanyService {
     page = 1,
     limit = 10,
     search?: string,
+    currentUser?: { role?: string; companyId?: number },
   ) {
-    const where = search
+    const where: any = search
       ? {
         name: ILike(`%${search}%`),
       }
       : {};
+
+    // TENANT SCOPING
+    if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+      where.id = currentUser.companyId;
+    }
 
     const [companies, total] =
       await this.companyRepo.findAndCount({
@@ -123,13 +130,23 @@ export class CompanyService {
   page = 1,
   limit = 10,
   search?: string,
+  currentUser?: { role?: string; companyId?: number },
 ) {
-  const where = search
+  let where: any = search
     ? [
         { username: ILike(`%${search}%`) },
         { email: ILike(`%${search}%`) },
       ]
     : {};
+
+  // TENANT SCOPING
+  if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+    if (Array.isArray(where)) {
+      where = where.map((w) => ({ ...w, company: { id: currentUser.companyId } }));
+    } else {
+      where = { ...where, company: { id: currentUser.companyId } };
+    }
+  }
 
   const [users, total] =
     await this.userRepo.findAndCount({
@@ -335,6 +352,7 @@ async findUserCreditDetails(
   userId: string,
   historyPage = 1,
   historyLimit = 10,
+  currentUser?: { role?: string; companyId?: number },
 ) {
   const user = await this.userRepo.findOne({
     where: {
@@ -342,6 +360,13 @@ async findUserCreditDetails(
     },
     relations: ['company'],
   });
+
+  // TENANT SCOPING: empresa só pode ver usuários da própria company
+  if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+    if (!user || user.company?.id !== currentUser.companyId) {
+      throw new ForbiddenException('Acesso negado a este usuário');
+    }
+  }
 
   const wallet = await this.walletRepo.findOne({
     where: {
@@ -433,9 +458,17 @@ async findUserCreditDetails(
   };
 }
 
-  async findAll(): Promise<Company[]> {
+  async findAll(currentUser?: { role?: string; companyId?: number }): Promise<Company[]> {
+    const where: any = {};
+
+    // TENANT SCOPING
+    if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+      where.id = currentUser.companyId;
+    }
+
     return this.companyRepo.find({
-      relations: ['users', 'plan'], // opcional
+      where,
+      relations: ['users', 'plan'],
     });
   }
 

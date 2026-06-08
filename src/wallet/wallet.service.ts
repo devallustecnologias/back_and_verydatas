@@ -164,6 +164,53 @@ export class WalletService {
     });
   }
 
+  async estornarCredits(
+    walletId: string,
+    amount: number,
+    description?: string,
+  ) {
+    if (amount <= 0) {
+      throw new BadRequestException('Valor invalido');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const walletRepo = manager.getRepository(Wallet);
+      const ledgerRepo = manager.getRepository(Ledger);
+
+      const wallet = await walletRepo.findOneBy({ id: walletId });
+
+      if (!wallet) {
+        throw new NotFoundException('Wallet nao encontrada');
+      }
+
+      const balanceResult = await ledgerRepo
+        .createQueryBuilder('l')
+        .select(`
+          COALESCE(SUM(CASE WHEN l.type = 'CREDIT' THEN l.amount ELSE 0 END), 0)
+          -
+          COALESCE(SUM(CASE WHEN l.type = 'DEBIT' THEN l.amount ELSE 0 END), 0)
+        `, 'balance')
+        .where('l.walletId = :walletId', { walletId })
+        .getRawOne();
+
+      const balance = Number(balanceResult.balance || 0);
+
+      if (balance < amount) {
+        throw new BadRequestException('Saldo insuficiente para estorno');
+      }
+
+      const ledger = await ledgerRepo.save({
+        wallet,
+        amount,
+        type: LedgerType.DEBIT,
+        origin: LedgerOrigin.ESTORNO,
+        description: description || 'Estorno de credito',
+      });
+
+      return { success: true, walletId, amount, ledger };
+    });
+  }
+
   async createWallet(dto: CreateWalletDto): Promise<Wallet> {
     let company: Company | null = null;
     let user: User | null = null;

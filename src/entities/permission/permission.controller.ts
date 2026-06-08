@@ -4,11 +4,14 @@ import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { Permission } from './permission.entity';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from 'src/entities/user/user.entity';
 
 @Controller('permissions')
 export class PermissionController {
     constructor(private readonly permissionService: PermissionService) { }
 
+    @Roles(UserRole.MASTER)
     @Get()
     @ApiOperation({
         summary: 'Listar permissões com paginação',
@@ -65,6 +68,8 @@ export class PermissionController {
             search,
         );
     }
+
+    @Roles(UserRole.MASTER)
     @Get(':id')
     @ApiOperation({ summary: 'Buscar permissão por ID' })
     @ApiResponse({
@@ -82,6 +87,7 @@ export class PermissionController {
         return this.permissionService.findOne(Number(id));
     }
 
+    @Roles(UserRole.MASTER)
     @Post()
     @ApiOperation({ summary: 'Criar nova permissão' })
     @ApiResponse({
@@ -99,6 +105,7 @@ export class PermissionController {
         return this.permissionService.create(dto);
     }
 
+    @Roles(UserRole.MASTER)
     @Delete(':id')
     @ApiOperation({ summary: 'Remover permissão' })
     @ApiResponse({
@@ -108,6 +115,8 @@ export class PermissionController {
     remove(@Param('id') id: number) {
         return this.permissionService.remove(Number(id));
     }
+
+    @Roles(UserRole.MASTER)
     @Put(':id')
     @ApiOperation({
         summary: 'Atualizar permissão',

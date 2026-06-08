@@ -9,6 +9,7 @@ export enum LedgerOrigin {
   TRANSFER = 'TRANSFER',
   CONSUMO = 'CONSUMO',
   AJUSTE = 'AJUSTE',
+  ESTORNO = 'ESTORNO',
 }
 
 @Entity()

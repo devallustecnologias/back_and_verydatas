@@ -4,11 +4,14 @@ import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { Plan } from './plan.entity';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from 'src/entities/user/user.entity';
 
 @Controller()
 export class PlanController {
   constructor(private readonly planService: PlanService) { }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get()
   @ApiOperation({ summary: 'Listar planos' })
   @ApiQuery({
@@ -65,6 +68,7 @@ export class PlanController {
     );
   }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get(':id')
   @ApiOperation({ summary: 'Buscar plano por ID' })
   @ApiResponse({
@@ -85,6 +89,7 @@ export class PlanController {
     return this.planService.findOne(Number(id));
   }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Post()
   @ApiOperation({ summary: 'Criar plano' })
   @ApiResponse({
@@ -106,6 +111,7 @@ export class PlanController {
     return this.planService.create(dto);
   }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar plano' })
   update(
@@ -115,6 +121,7 @@ export class PlanController {
     return this.planService.update(Number(id), dto);
   }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Delete(':id')
   @ApiOperation({ summary: 'Remover plano' })
   @ApiResponse({
@@ -125,6 +132,7 @@ export class PlanController {
     return this.planService.remove(Number(id));
   }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Post(':planId/assign/:userId')
   @ApiOperation({ summary: 'Atribuir plano a um usuário' })
   @ApiResponse({

@@ -11,6 +11,8 @@ import { WalletService } from './wallet.service';
 import { CreateWalletDto } from './dto/wallet.dto';
 import { TransferWalletDto } from './dto/tranfer.dto';
 import { AddCreditsWalletDto } from './dto/add.credit.wallet.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from 'src/entities/user/user.entity';
 
 
 @ApiTags('Wallets')
@@ -19,6 +21,7 @@ export class WalletController {
   constructor(private readonly walletService: WalletService) { }
 
   // criar wallet
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Post()
   @ApiOperation({ summary: 'Criar wallet (empresa ou usuário)' })
   create(@Body() dto: CreateWalletDto) {
@@ -26,6 +29,7 @@ export class WalletController {
   }
 
   //  transferência
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Post('transfer')
   @ApiOperation({ summary: 'Transferir créditos entre wallets' })
   transfer(@Body() dto: TransferWalletDto) {
@@ -36,6 +40,7 @@ export class WalletController {
     );
   }
 
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Post('add-credits')
   @ApiOperation({ summary: 'Adicionar créditos manualmente em uma wallet' })
   addCredits(@Body() dto: AddCreditsWalletDto) {
@@ -45,7 +50,9 @@ export class WalletController {
       dto.description,
     );
   }
+
   //  saldo
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get(':id/balance')
   @ApiOperation({ summary: 'Consultar saldo da wallet' })
   getBalance(@Param('id') id: string) {
@@ -53,6 +60,7 @@ export class WalletController {
   }
 
   //  extrato
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get(':id/ledger')
   @ApiOperation({ summary: 'Extrato da wallet' })
   getLedger(@Param('id') id: string) {
