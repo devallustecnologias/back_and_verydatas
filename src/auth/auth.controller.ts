@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Ip,
   Post,
   Req,
   UseGuards,
@@ -102,17 +103,18 @@ export class AuthController {
   })
   @Post("login")
   async login(
-    @Body() data: { email: string; password: string }
+    @Body() data: { email: string; password: string },
+    @Ip() ip: string,
   ): Promise<any> {
     if (!data.email || !data.password) {
       throw new BadRequestException("Email and password are required");
     }
 
     try {
-      return await this.authService.login(data.email, data.password);
+      return await this.authService.login(data.email, data.password, ip);
     } catch (error) {
       console.log(error)
-      throw new UnauthorizedException("Invalid email or password");
+      throw error;
     }
   }
 

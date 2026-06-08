@@ -10,6 +10,42 @@ import { OAuth2Client } from 'google-auth-library';
 import { Permission } from 'src/entities/permission/permission.entity';
 import { PermissionService } from 'src/entities/permission/permission.service';
 import { UserService } from 'src/user/user.service';
+import { CompanyAccessControl, IpMode } from 'src/entities/access-control/company-access-control.entity';
+
+/** Normaliza IPv6-mapped (::ffff:x.x.x.x) para o IPv4 puro */
+function normalizeIp(raw: string): string {
+  if (raw && raw.startsWith('::ffff:')) {
+    return raw.slice(7);
+  }
+  return raw;
+}
+
+/** Retorna 'MON'|'TUE'|... para o dia da semana no timezone informado */
+function currentDayInTimezone(timezone: string): string {
+  const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+  }).formatToParts(new Date());
+  const weekdayShort = parts.find(p => p.type === 'weekday')?.value ?? '';
+  const idx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekdayShort);
+  return idx >= 0 ? days[idx] : 'MON';
+}
+
+/** Retorna 'HH:mm' atual no timezone informado */
+function currentTimeInTimezone(timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const hour = parts.find(p => p.type === 'hour')?.value ?? '00';
+  const minute = parts.find(p => p.type === 'minute')?.value ?? '00';
+  // Intl pode retornar '24:xx' para meia-noite — normalizar
+  const h = hour === '24' ? '00' : hour;
+  return `${h.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+}
 
 @Injectable()
 export class AuthService {
@@ -19,6 +55,8 @@ export class AuthService {
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(Permission)
     private permissionsRepository: Repository<Permission>,
+    @InjectRepository(CompanyAccessControl)
+    private acRepository: Repository<CompanyAccessControl>,
 
     private readonly userService: UserService,
   ) { }
@@ -55,7 +93,7 @@ export class AuthService {
     return userCreate;
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, ip: string = '') {
     let user: User | null;
     try {
       user = await this.userRepository.findOne({
@@ -96,6 +134,41 @@ export class AuthService {
     // Gate: status da empresa (não bloqueia MASTER sem empresa)
     if (user.role !== UserRole.MASTER && user.company?.status === CompanyStatus.BLOQUEADA) {
       throw new UnauthorizedException('Empresa bloqueada');
+    }
+
+    // Gate: horário e IP por empresa (MASTER é isento)
+    if (user.role !== UserRole.MASTER && user.company) {
+      const ac = await this.acRepository.findOne({
+        where: { company: { id: user.company.id } },
+      });
+
+      if (ac) {
+        // Horário
+        if (ac.scheduleEnabled && ac.allowedDays?.length) {
+          const tz = ac.timezone || 'America/Sao_Paulo';
+          const currentDay = currentDayInTimezone(tz);
+          const currentTime = currentTimeInTimezone(tz);
+
+          const dayAllowed = ac.allowedDays.includes(currentDay);
+          let timeAllowed = true;
+          if (ac.startTime && ac.endTime) {
+            timeAllowed = currentTime >= ac.startTime && currentTime <= ac.endTime;
+          }
+
+          if (!dayAllowed || !timeAllowed) {
+            throw new UnauthorizedException('Acesso fora do horário permitido');
+          }
+        }
+
+        // IP
+        if (ac.ipMode === IpMode.RESTRICTED) {
+          const normalizedRequest = normalizeIp(ip);
+          const allowed = (ac.allowedIps ?? []).map(normalizeIp);
+          if (!allowed.includes(normalizedRequest)) {
+            throw new UnauthorizedException('IP não autorizado');
+          }
+        }
+      }
     }
 
     const permissions = await this.userService.getUserPermissions(user.uid);

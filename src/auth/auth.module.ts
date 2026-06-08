@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { User } from '../entities/user/user.entity';
 import { Permission } from 'src/entities/permission/permission.entity';
 import { UserModule } from 'src/user/user.module';
+import { CompanyAccessControl } from 'src/entities/access-control/company-access-control.entity';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
@@ -17,7 +18,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
   imports: [
     UserModule,
     PassportModule,
-    TypeOrmModule.forFeature([User, Permission]),
+    TypeOrmModule.forFeature([User, Permission, CompanyAccessControl]),
     JwtModule.register({
       secret: JWT_SECRET,
       signOptions: { expiresIn: '12h' },

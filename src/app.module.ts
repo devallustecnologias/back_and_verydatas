@@ -10,6 +10,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DepartmentModule } from './department/department.module';
 import { CargoModule } from './cargo/cargo.module';
 import { MenuModule } from './menu/menu.module';
+import { AccessControlModule } from './access-control/access-control.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -33,6 +34,7 @@ import { RolesGuard } from './auth/roles.guard';
     CargoModule,
     MenuModule,
     AuthModule,
+    AccessControlModule,
     ConfigModule.forRoot({
       isGlobal: true
     }),
