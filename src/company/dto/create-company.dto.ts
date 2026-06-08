@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateCompanyDto {
   @ApiProperty({ example: 'Minha Empresa LTDA' })
@@ -129,4 +130,33 @@ export class CreateCompanyDto {
     description: 'Certificação de Crédito Consignado (ANEPS) — obrigatório para contratar',
   })
   aneps!: string;
+
+  // White Label §13
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    example: 'empresa',
+    description: 'Subdomínio sob verytasdados.com.br (ex: empresa -> empresa.verytasdados.com.br)',
+    required: false,
+  })
+  subdomain?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    example: 'www.empresa.com.br',
+    description: 'Domínio próprio para white label completo',
+    required: false,
+  })
+  customDomain?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ example: '#1A73E8', required: false })
+  brandPrimaryColor?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ example: '#34A853', required: false })
+  brandSecondaryColor?: string;
 }

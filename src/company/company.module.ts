@@ -1,6 +1,7 @@
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CompanyController } from './company.controller';
 import { CompanyService } from './company.service';
+import { BrandingController } from './branding.controller';
 
 import { Module } from '@nestjs/common';
 import { Company } from './company.entity';
@@ -13,7 +14,9 @@ import { WalletModule } from 'src/wallet/wallet.module';
 @Module({
       imports: [TypeOrmModule.forFeature([Company, Plan, Ledger, Wallet, User]), WalletModule],
     controllers: [
-        CompanyController,],
+        CompanyController,
+        BrandingController,
+    ],
     providers: [
         CompanyService,],
 })
