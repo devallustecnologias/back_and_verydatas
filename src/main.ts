@@ -8,7 +8,10 @@ async function bootstrap() {
     cors: true,
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  // transform: true (coerção de tipos). whitelist REMOVIDO: vários DTOs ainda não
+  // têm decorators class-validator e o whitelist descartava seus campos (ex. amount
+  // no estorno -> 500). Reativar whitelist só após decorar todos os DTOs.
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
   const config = new DocumentBuilder()
     .setTitle('Veridata API')
