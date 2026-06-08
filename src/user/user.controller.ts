@@ -5,12 +5,15 @@ import { CreateUserDto } from './dto/user-create.dto';
 import { UpdateUserDto } from './dto/user-update.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/user.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from 'src/entities/user/user.entity';
 
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
     constructor(private readonly userService: UserService) { }
 
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Get("all")
     @ApiOperation({ summary: 'Listar usuários com paginação' })
 
@@ -29,14 +32,18 @@ export class UserController {
 
         @Query('search')
         search?: string,
+
+        @User() user?: any,
     ) {
         return this.userService.findAll(
             page,
             limit,
             search,
+            user,
         );
     }
 
+    @Roles(UserRole.MASTER)
     @Post('master')
     @ApiOperation({ summary: 'Criar usuário MASTER' })
     @ApiResponse({
@@ -55,18 +62,21 @@ export class UserController {
         return this.userService.createMaster(dto);
     }
 
+    @Roles(UserRole.MASTER)
     @Post('admin')
     @ApiOperation({ summary: 'Criar admin da empresa' })
     createAdmin(@Body() dto: CreateUserDto) {
         return this.userService.createAdmin(dto);
     }
 
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Post('operator')
     @ApiOperation({ summary: 'Criar operador' })
     createOperator(@Body() dto: CreateUserDto) {
         return this.userService.createOperator(dto);
     }
 
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Put(':uid')
     @ApiOperation({ summary: 'Atualizar usuário' })
     update(
@@ -76,6 +86,7 @@ export class UserController {
         return this.userService.update(uid, dto);
     }
 
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Get(':uid')
     @ApiOperation({ summary: 'Buscar usuário por UID' })
     findOne(
@@ -83,13 +94,15 @@ export class UserController {
     ) {
         return this.userService.findOne(uid);
     }
-    
+
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Delete(':uid')
     @ApiOperation({ summary: 'Remover usuário' })
     remove(@Param('uid') uid: string) {
         return this.userService.remove(uid);
     }
 
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Get(':userId/permissions')
     @ApiOperation({ summary: 'Listar permissões do usuário' })
     getUserPermissions(@Param('userId') userId: string, @User() user: any) {

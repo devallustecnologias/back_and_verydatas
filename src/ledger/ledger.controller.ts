@@ -10,12 +10,15 @@ import { LedgerService } from './ledger.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Ledger } from './ledger.entity';
 import { CreateLedgerDto } from './dtos/create-ledger.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { UserRole } from 'src/entities/user/user.entity';
 
 @ApiTags('Ledger')
 @Controller('ledger')
 export class LedgerController {
   constructor(private readonly ledgerService: LedgerService) {}
 
+  @Roles(UserRole.MASTER)
   @Get()
   @ApiOperation({ summary: 'Listar lançamentos' })
   @ApiResponse({
@@ -41,12 +44,14 @@ export class LedgerController {
     return this.ledgerService.findAll();
   }
 
+  @Roles(UserRole.MASTER)
   @Get(':id')
   @ApiOperation({ summary: 'Buscar lançamento por ID' })
   findOne(@Param('id') id: number): Promise<Ledger> {
     return this.ledgerService.findOne(Number(id));
   }
 
+  @Roles(UserRole.MASTER)
   @Post()
   @ApiOperation({ summary: 'Criar lançamento' })
   @ApiResponse({
@@ -68,6 +73,7 @@ export class LedgerController {
     return this.ledgerService.create(dto);
   }
 
+  @Roles(UserRole.MASTER)
   @Delete(':id')
   @ApiOperation({ summary: 'Remover lançamento (não recomendado)' })
   remove(@Param('id') id: number) {

@@ -59,6 +59,7 @@ export class AuthService {
     try {
       user = await this.userRepository.findOne({
         where: { email },
+        relations: ['company'],
       });
     } catch (error) {
       console.error('Erro ao buscar usuário:', error);
@@ -80,15 +81,17 @@ export class AuthService {
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    // const userWithPermissions = await this.userRepository.findOne({
-    //   where: { uid: user.uid },
-    //   relations: ['permissions'],
-    // });
 
-    const permissoes =  await this.userService.getUserPermissions(user.uid);
-    console.log('User with permissions:', permissoes);
+    const permissions = await this.userService.getUserPermissions(user.uid);
+    console.log('User with permissions:', permissions);
 
-    const payload = { sub: user.uid, username: user.username, role: user.role, permissoes };
+    const payload = {
+      sub: user.uid,
+      username: user.username,
+      role: user.role,
+      companyId: user.company?.id ?? null,
+      permissions,
+    };
     try {
       return { accessToken: this.jwtService.sign(payload) };
     } catch (error) {

@@ -6,10 +6,12 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalAuthGuard } from './local-auth.guard';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { User } from '../entities/user/user.entity';
-import { PermissionModule } from 'src/entities/permission/permission.module';
 import { Permission } from 'src/entities/permission/permission.entity';
 import { UserModule } from 'src/user/user.module';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
 @Module({
   imports: [
@@ -17,13 +19,12 @@ import { UserModule } from 'src/user/user.module';
     PassportModule,
     TypeOrmModule.forFeature([User, Permission]),
     JwtModule.register({
-      secret: 'mysecretkey',
+      secret: JWT_SECRET,
       signOptions: { expiresIn: '12h' },
     }),
-   
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalAuthGuard],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, LocalAuthGuard, JwtAuthGuard],
+  exports: [AuthService, JwtAuthGuard],
 })
-export class AuthModule { }
+export class AuthModule {}

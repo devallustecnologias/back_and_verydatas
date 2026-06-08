@@ -65,4 +65,26 @@ export class CreditoService {
             description,
         );
     }
+
+    async estornarCredits(
+        userIdOrCompanyId: string,
+        amount: number,
+        description?: string,
+    ) {
+        if (amount <= 0) {
+            throw new BadRequestException('Valor invalido');
+        }
+
+        const isCompany = !isNaN(Number(userIdOrCompanyId));
+
+        const wallet = isCompany
+            ? await this.walletRepo.findOneBy({ companyId: Number(userIdOrCompanyId) })
+            : await this.walletRepo.findOneBy({ userId: userIdOrCompanyId });
+
+        if (!wallet) {
+            throw new BadRequestException('Carteira nao encontrada para estorno');
+        }
+
+        return this.walletService.estornarCredits(wallet.id, amount, description);
+    }
 }

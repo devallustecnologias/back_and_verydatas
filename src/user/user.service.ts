@@ -296,6 +296,7 @@ export class UserService {
         page = 1,
         limit = 10,
         search?: string,
+        currentUser?: { role?: string; companyId?: number },
     ) {
         const query =
             this.userRepo.createQueryBuilder(
@@ -311,6 +312,13 @@ export class UserService {
                 'user.plan',
                 'plan',
             );
+
+        // TENANT SCOPING: não-master vê só sua empresa
+        if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+            query.andWhere('user.company_id = :companyId', {
+                companyId: currentUser.companyId,
+            });
+        }
 
         // BUSCA POR NOME
         if (search) {
