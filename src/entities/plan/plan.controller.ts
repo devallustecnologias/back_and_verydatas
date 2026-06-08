@@ -7,7 +7,7 @@ import { Plan } from './plan.entity';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'src/entities/user/user.entity';
 
-@Controller()
+@Controller('plans')
 export class PlanController {
   constructor(private readonly planService: PlanService) { }
 

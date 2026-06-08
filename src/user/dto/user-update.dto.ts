@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsInt, IsOptional } from 'class-validator';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -42,4 +43,22 @@ export class UpdateUserDto {
       'IDs das permissões do plano do operador',
   })
   permissionIds?: number[];
+
+  @ApiProperty({
+    required: false,
+    example: 1,
+    description: 'ID do departamento do usuário',
+  })
+  @IsInt()
+  @IsOptional()
+  departmentId?: number;
+
+  @ApiProperty({
+    required: false,
+    example: 1,
+    description: 'ID do cargo do usuário',
+  })
+  @IsInt()
+  @IsOptional()
+  cargoId?: number;
 }

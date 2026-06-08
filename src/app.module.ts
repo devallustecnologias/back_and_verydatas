@@ -7,6 +7,8 @@ import { PermissionModule } from './entities/permission/permission.module';
 import { PlanModule } from './entities/plan/plan.module';
 import { UserModule } from './user/user.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { DepartmentModule } from './department/department.module';
+import { CargoModule } from './cargo/cargo.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -26,6 +28,8 @@ import { RolesGuard } from './auth/roles.guard';
     PlanModule,
     UserModule,
     DashboardModule,
+    DepartmentModule,
+    CargoModule,
     AuthModule,
     ConfigModule.forRoot({
       isGlobal: true
