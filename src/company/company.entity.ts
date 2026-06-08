@@ -82,6 +82,19 @@ export class Company {
   @Column({ nullable: true })
   aneps?: string;
 
+  // White Label §13
+  @Column({ nullable: true, unique: true })
+  subdomain?: string; // ex: 'empresa' -> empresa.verytasdados.com.br
+
+  @Column({ nullable: true, unique: true })
+  customDomain?: string; // ex: 'www.empresa.com.br'
+
+  @Column({ nullable: true })
+  brandPrimaryColor?: string;
+
+  @Column({ nullable: true })
+  brandSecondaryColor?: string;
+
   @Column({
     type: 'enum',
     enum: CompanyStatus,
