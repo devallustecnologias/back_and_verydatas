@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Permission } from '../permission/permission.entity';
+import { Menu } from '../menu/menu.entity';
 
 @Entity()
 export class Plan {
@@ -17,7 +18,12 @@ export class Plan {
   @JoinTable()
   permissions!: Permission[];
 
+  @ApiProperty({ type: () => [Menu] })
+  @ManyToMany(() => Menu)
+  @JoinTable()
+  menus!: Menu[];
+
   @ApiProperty()
   @Column({ default: false })
-  isSystem!: boolean; 
+  isSystem!: boolean;
 }
