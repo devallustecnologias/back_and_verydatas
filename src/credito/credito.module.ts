@@ -3,11 +3,12 @@ import { CreditoController } from './credito.controller';
 import { CreditoService } from './credito.service';
 import { Module } from '@nestjs/common';
 import { Wallet } from 'src/ledger/walled.entity';
+import { User } from 'src/entities/user/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
 
-    imports: [WalletModule, TypeOrmModule.forFeature([Wallet])],
+    imports: [WalletModule, TypeOrmModule.forFeature([Wallet, User])],
     controllers: [
         CreditoController,],
     providers: [
