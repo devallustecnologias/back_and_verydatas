@@ -11,6 +11,7 @@ import { Permission } from 'src/entities/permission/permission.entity';
 import { PermissionService } from 'src/entities/permission/permission.service';
 import { UserService } from 'src/user/user.service';
 import { CompanyAccessControl, IpMode } from 'src/entities/access-control/company-access-control.entity';
+import { AuditService } from 'src/audit/audit.service';
 
 /** Normaliza IPv6-mapped (::ffff:x.x.x.x) para o IPv4 puro */
 function normalizeIp(raw: string): string {
@@ -59,6 +60,7 @@ export class AuthService {
     private acRepository: Repository<CompanyAccessControl>,
 
     private readonly userService: UserService,
+    private readonly auditService: AuditService,
   ) { }
 
   async register(data: {
@@ -181,11 +183,25 @@ export class AuthService {
       companyId: user.company?.id ?? null,
       permissions,
     };
+
+    let token: string;
     try {
-      return { accessToken: this.jwtService.sign(payload) };
+      token = this.jwtService.sign(payload);
     } catch (error) {
       console.error('Erro ao gerar token:', error);
       throw new InternalServerErrorException('Erro ao realizar o login.');
     }
+
+    // Auditoria: LOGIN (não bloqueia a resposta mesmo em falha)
+    void this.auditService.log({
+      action: 'LOGIN',
+      userId: user.uid,
+      username: user.username,
+      companyId: user.company?.id ?? null,
+      ip: normalizeIp(ip),
+      detail: `Login via email: ${user.email}`,
+    });
+
+    return { accessToken: token };
   }
 }

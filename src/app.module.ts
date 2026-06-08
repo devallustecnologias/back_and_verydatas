@@ -11,13 +11,15 @@ import { DepartmentModule } from './department/department.module';
 import { CargoModule } from './cargo/cargo.module';
 import { MenuModule } from './menu/menu.module';
 import { AccessControlModule } from './access-control/access-control.module';
+import { AuditModule } from './audit/audit.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { AuditInterceptor } from './audit/audit.interceptor';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { RolesGuard } from './auth/roles.guard';
     MenuModule,
     AuthModule,
     AccessControlModule,
+    AuditModule,
     ConfigModule.forRoot({
       isGlobal: true
     }),
@@ -59,6 +62,10 @@ import { RolesGuard } from './auth/roles.guard';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
     },
   ],
 })
