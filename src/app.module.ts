@@ -12,6 +12,7 @@ import { CargoModule } from './cargo/cargo.module';
 import { MenuModule } from './menu/menu.module';
 import { AccessControlModule } from './access-control/access-control.module';
 import { AuditModule } from './audit/audit.module';
+import { ReportsModule } from './reports/reports.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -38,6 +39,7 @@ import { AuditInterceptor } from './audit/audit.interceptor';
     AuthModule,
     AccessControlModule,
     AuditModule,
+    ReportsModule,
     ConfigModule.forRoot({
       isGlobal: true
     }),
