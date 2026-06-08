@@ -4,7 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { User } from '../entities/user/user.entity';
+import { User, UserRole, UserStatus } from '../entities/user/user.entity';
+import { CompanyStatus } from '../company/company.entity';
 import { OAuth2Client } from 'google-auth-library';
 import { Permission } from 'src/entities/permission/permission.entity';
 import { PermissionService } from 'src/entities/permission/permission.service';
@@ -80,6 +81,21 @@ export class AuthService {
 
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Gate: status do usuário
+    if (user.status !== UserStatus.ATIVO) {
+      const msgMap: Record<string, string> = {
+        [UserStatus.BLOQUEADO]: 'Usuário bloqueado',
+        [UserStatus.SUSPENSO]: 'Usuário suspenso',
+        [UserStatus.EXCLUIDO]: 'Usuário não encontrado',
+      };
+      throw new UnauthorizedException(msgMap[user.status] ?? 'Acesso negado');
+    }
+
+    // Gate: status da empresa (não bloqueia MASTER sem empresa)
+    if (user.role !== UserRole.MASTER && user.company?.status === CompanyStatus.BLOQUEADA) {
+      throw new UnauthorizedException('Empresa bloqueada');
     }
 
     const permissions = await this.userService.getUserPermissions(user.uid);
