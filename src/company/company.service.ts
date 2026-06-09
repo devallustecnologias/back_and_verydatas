@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company, CompanyStatus } from './company.entity';
@@ -739,9 +740,24 @@ async getDataByCnpj(cnpjNumber: string): Promise<CompanyCnpjDataDto> {
     throw new BadRequestException('CNPJ inválido');
   }
 
-  const { data } = await axios.get(
-    `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
-  );
+  let data: any;
+  try {
+    const response = await axios.get(
+      `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
+      { timeout: 10000 },
+    );
+    data = response.data;
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      throw new NotFoundException('CNPJ não encontrado na Receita Federal');
+    }
+    if (err?.response?.status === 400 || err?.response?.status === 422) {
+      throw new BadRequestException('CNPJ inválido ou malformado');
+    }
+    throw new BadRequestException(
+      `Erro ao consultar CNPJ: ${err?.message ?? 'serviço indisponível'}`,
+    );
+  }
 
   return {
     name: data.nome_fantasia || data.razao_social || '',

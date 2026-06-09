@@ -11,7 +11,9 @@ import { UserRole } from 'src/entities/user/user.entity';
 export class PermissionController {
     constructor(private readonly permissionService: PermissionService) { }
 
-    @Roles(UserRole.MASTER)
+    // EMPRESA também lista (read-only) — necessário para o selector de permissões
+    // nos formulários de plano, cujos endpoints permitem MASTER e EMPRESA
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Get()
     @ApiOperation({
         summary: 'Listar permissões com paginação',
