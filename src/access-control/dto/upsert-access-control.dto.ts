@@ -54,4 +54,8 @@ export class UpsertAccessControlDto {
   @IsString({ each: true })
   @IsOptional()
   allowedIps?: string[];
+
+  @ApiProperty({ required: false, description: 'Estado de seleção dos menus/ações da Árvore de Permissões' })
+  @IsOptional()
+  menuPermissions?: any;
 }

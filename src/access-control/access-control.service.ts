@@ -106,6 +106,7 @@ export class AccessControlService {
     if (dto.timezone !== undefined) config.timezone = dto.timezone;
     if (dto.ipMode !== undefined) config.ipMode = dto.ipMode;
     if (dto.allowedIps !== undefined) config.allowedIps = dto.allowedIps;
+    if (dto.menuPermissions !== undefined) config.menuPermissions = dto.menuPermissions;
 
     return this.acRepo.save(config);
   }

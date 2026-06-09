@@ -51,6 +51,10 @@ export class CompanyAccessControl {
   @Column({ type: 'simple-array', nullable: true })
   allowedIps!: string[];
 
+  // Permissões de menus/ações da Árvore de Permissões
+  @Column({ type: 'json', nullable: true })
+  menuPermissions: any | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt!: Date;
 
