@@ -52,7 +52,10 @@ export class PlanService {
   }
 
   async findOne(id: number): Promise<Plan> {
-    const plan = await this.planRepo.findOne({ where: { id } });
+    const plan = await this.planRepo.findOne({
+      where: { id },
+      relations: ['permissions'],
+    });
 
     if (!plan) {
       throw new NotFoundException('Plano não encontrado');
@@ -84,23 +87,30 @@ export class PlanService {
   }
 
   async update(id: number, dto: UpdatePlanDto): Promise<Plan> {
-    console.log(id, dto)
     const plan = await this.findOne(id);
 
     if (plan.isSystem) {
       throw new BadRequestException('Plano do sistema não pode ser editado');
     }
 
-    const permissions = await this.permissionRepo.find({
-      where: dto.permissionIds.map((id) => ({ id })),
-    });
+    if (dto.permissionIds !== undefined) {
+      // In([]) compila para 0=1 (zero linhas); where: [] retornaria TODAS
+      const permissions = dto.permissionIds.length
+        ? await this.permissionRepo.find({
+            where: { id: In(dto.permissionIds) },
+          })
+        : [];
 
-    if (permissions.length !== dto.permissionIds.length) {
-      throw new BadRequestException('Permissões inválidas');
+      if (permissions.length !== dto.permissionIds.length) {
+        throw new BadRequestException('Permissões inválidas');
+      }
+
+      plan.permissions = permissions;
     }
 
-    plan.name = dto.name;
-    plan.permissions = permissions;
+    if (dto.name !== undefined) {
+      plan.name = dto.name;
+    }
 
     if (dto.creditLimit !== undefined) {
       plan.creditLimit = dto.creditLimit;

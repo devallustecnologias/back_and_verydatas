@@ -1,14 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class UpdatePlanDto {
-  @ApiProperty({ example: 'Plano Atualizado' })
-  name!: string;
+  @ApiProperty({ example: 'Plano Atualizado', required: false })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  name?: string;
 
   @ApiProperty({
     example: [1, 2],
+    required: false,
   })
-  permissionIds!: number[];
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  permissionIds?: number[];
 
   @ApiProperty({
     example: 1000,
