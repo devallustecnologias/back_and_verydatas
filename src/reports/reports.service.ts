@@ -117,6 +117,12 @@ export class ReportsService {
     if (dto.userId != null && currentUser.role !== UserRole.OPERADOR) {
       summaryQb.andWhere('wallet.userId = :filterUserId', { filterUserId: dto.userId });
     }
+    if (dto.origin != null) {
+      summaryQb.andWhere('ledger.origin = :origin', { origin: dto.origin });
+    }
+    if (dto.type != null) {
+      summaryQb.andWhere('ledger.type = :type', { type: dto.type });
+    }
     if (dto.from != null) {
       summaryQb.andWhere('ledger.createdAt >= :from', { from: new Date(dto.from) });
     }

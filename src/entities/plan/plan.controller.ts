@@ -89,7 +89,7 @@ export class PlanController {
     return this.planService.findOne(Number(id));
   }
 
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Post()
   @ApiOperation({ summary: 'Criar plano' })
   @ApiResponse({
@@ -111,7 +111,7 @@ export class PlanController {
     return this.planService.create(dto);
   }
 
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Put(':id')
   @ApiOperation({ summary: 'Atualizar plano' })
   update(
@@ -121,7 +121,7 @@ export class PlanController {
     return this.planService.update(Number(id), dto);
   }
 
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Delete(':id')
   @ApiOperation({ summary: 'Remover plano' })
   @ApiResponse({
@@ -132,7 +132,7 @@ export class PlanController {
     return this.planService.remove(Number(id));
   }
 
-  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Roles(UserRole.MASTER)
   @Post(':planId/assign/:userId')
   @ApiOperation({ summary: 'Atribuir plano a um usuário' })
   @ApiResponse({

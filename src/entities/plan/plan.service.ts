@@ -6,6 +6,7 @@ import { Permission } from '../permission/permission.entity';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { User } from '../user/user.entity';
+import { Company } from 'src/company/company.entity';
 
 @Injectable()
 export class PlanService {
@@ -25,36 +26,35 @@ export class PlanService {
     limit = 10,
     search?: string,
   ) {
-    const [data, total] =
-      await this.planRepo.findAndCount({
-        where: search
-          ? {
-            name: ILike(`%${search}%`),
-          }
-          : {},
-        order: {
-          id: 'DESC',
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-        relations: ['permissions'],
-      });
+    const qb = this.planRepo
+      .createQueryBuilder('plan')
+      .leftJoinAndSelect('plan.permissions', 'permissions')
+      .leftJoinAndSelect('plan.menus', 'menus')
+      .where("plan.name NOT LIKE 'custom-%'");
+
+    if (search) {
+      qb.andWhere('LOWER(plan.name) LIKE LOWER(:search)', { search: `%${search}%` });
+    }
+
+    qb.orderBy('plan.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
 
     return {
       data,
       total,
       page,
       limit,
-      totalPages: Math.ceil(
-        total / limit,
-      ),
+      totalPages: Math.ceil(total / limit),
     };
   }
 
   async findOne(id: number): Promise<Plan> {
     const plan = await this.planRepo.findOne({
       where: { id },
-      relations: ['permissions'],
+      relations: ['permissions', 'menus'],
     });
 
     if (!plan) {
@@ -126,9 +126,27 @@ export class PlanService {
   async remove(id: number): Promise<void> {
     const plan = await this.findOne(id);
 
-    // if (plan.isSystem) {
-    //   throw new BadRequestException('Plano do sistema não pode ser removido');
-    // }
+    if (plan.isSystem) {
+      throw new BadRequestException('Plano do sistema não pode ser removido');
+    }
+
+    const usersUsing = await this.userRepo.count({
+      where: { plan: { id } },
+    });
+    if (usersUsing > 0) {
+      throw new BadRequestException(
+        'Plano em uso por usuários — desvincule antes de remover',
+      );
+    }
+
+    const companiesUsing = await this.userRepo.manager.count(Company, {
+      where: { plan: { id } },
+    });
+    if (companiesUsing > 0) {
+      throw new BadRequestException(
+        'Plano em uso por empresas — desvincule antes de remover',
+      );
+    }
 
     await this.planRepo.remove(plan);
   }

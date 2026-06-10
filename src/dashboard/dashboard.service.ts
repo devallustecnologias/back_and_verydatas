@@ -190,16 +190,16 @@ export class DashboardService {
       consultasRealizadas = Number(consultasRaw?.total ?? 0);
     }
 
-    // ── rankingUsuarios: top 5 por SUM DEBIT (consumo) ──
-    // JOIN wallet(type=USER, companyId)->ledger DEBIT, GROUP BY user, ORDER BY soma DESC
+    // ── rankingUsuarios: top 5 por SUM DEBIT origin=CONSUMO (consumo) ──
+    // JOIN wallet(type=USER, companyId)->ledger DEBIT origin=CONSUMO, GROUP BY user, ORDER BY soma DESC
     const rankingRaw = await this.walletRepo
       .createQueryBuilder('wallet')
       .innerJoin(User, 'user', 'user.uid = wallet.userId AND user.deletedAt IS NULL')
       .innerJoin(
         Ledger,
         'ledger',
-        'ledger.walletId = wallet.id AND ledger.type = :ledgerType',
-        { ledgerType: LedgerType.DEBIT },
+        'ledger.walletId = wallet.id AND ledger.type = :ledgerType AND ledger.origin = :rankingOrigin',
+        { ledgerType: LedgerType.DEBIT, rankingOrigin: LedgerOrigin.CONSUMO },
       )
       .select('user.uid', 'userId')
       .addSelect('user.username', 'username')

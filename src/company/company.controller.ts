@@ -191,23 +191,52 @@ export class CompanyController {
   @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get()
   @ApiOperation({ summary: 'Listar empresas' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    example: 'Microsoft',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Lista de empresas',
+    description: 'Lista paginada de empresas',
     schema: {
-      example: [
-        {
-          id: 1,
-          name: 'Minha Empresa',
-          domain: 'minhaempresa',
-          logoUrl: null,
-          users: [],
-        },
-      ],
+      example: {
+        data: [
+          {
+            id: 1,
+            name: 'Minha Empresa',
+            domain: 'minhaempresa',
+            logoUrl: null,
+            users: [],
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      },
     },
   })
-  findAll(@User() user?: any): Promise<Company[]> {
-    return this.companyService.findAll(user);
+  findAll(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+    @User() user?: any,
+  ) {
+    return this.companyService.findAll(Number(page), Number(limit), search, user);
   }
 
   @Roles(UserRole.MASTER, UserRole.EMPRESA)
