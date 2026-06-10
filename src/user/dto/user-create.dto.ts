@@ -13,9 +13,11 @@ export class CreateUserDto {
   email!: string;
 
   @ApiProperty({
+    required: false,
     example: '123456',
+    description: 'Se omitida, o sistema gera uma senha e envia por e-mail',
   })
-  password!: string;
+  password?: string;
 
   @ApiProperty({
     required: false,

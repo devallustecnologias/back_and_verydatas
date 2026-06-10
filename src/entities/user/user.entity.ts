@@ -130,4 +130,8 @@ export class User {
   // §15 — Inatividade: última atividade registrada
   @Column({ type: 'timestamp', nullable: true })
   lastActivityAt?: Date | null;
+
+  // Senha provisória gerada pelo sistema — usuário deve trocar no primeiro acesso
+  @Column({ type: 'boolean', default: false })
+  mustChangePassword!: boolean;
 }

@@ -17,6 +17,7 @@ function normalizeIp(raw: string | undefined): string | null {
 function deriveAction(method: string, url: string): string {
   const path = url.split('?')[0].toLowerCase();
 
+  if (path.includes('/auth/change-password')) return 'PASSWORD_CHANGE';
   if (path.includes('/creditos/estorno')) return 'CREDIT_ESTORNO';
   if (path.includes('/creditos')) return 'CREDIT_ADD';
   if (path.includes('/menus')) return 'MENU_CHANGE';
