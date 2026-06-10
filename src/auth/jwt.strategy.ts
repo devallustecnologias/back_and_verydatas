@@ -40,14 +40,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Acesso negado');
     }
 
-    // §15 — Sessão única (gracioso): só valida se ambos os lados têm sid
-    // Tokens antigos (sem sid no payload) ou usuários sem currentSessionId
-    // (pré-deploy ou logout anterior) continuam válidos.
-    if (
-      user.currentSessionId != null &&
-      payload.sid != null &&
-      user.currentSessionId !== payload.sid
-    ) {
+    // §15 — Sessão única: token com sid precisa bater com a sessão ativa.
+    // currentSessionId null = sem sessão ativa (logout) → token com sid é rejeitado.
+    // Tokens antigos sem sid (pré-feature) continuam válidos até expirarem.
+    if (payload.sid != null && user.currentSessionId !== payload.sid) {
       throw new UnauthorizedException('Sessão encerrada: login em outro dispositivo');
     }
 
