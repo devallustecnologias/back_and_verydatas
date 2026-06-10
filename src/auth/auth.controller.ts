@@ -156,6 +156,36 @@ export class AuthController {
   }
 
   // =========================
+  // CHANGE PASSWORD
+  // =========================
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Trocar a própria senha' })
+  @ApiResponse({
+    status: 200,
+    schema: { example: { success: true } },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Post('change-password')
+  async changePassword(
+    @Body()
+    body: { currentPassword: string; newPassword: string },
+    @UserDecorator() user: any,
+  ) {
+    if (!body?.currentPassword || !body?.newPassword) {
+      throw new BadRequestException(
+        'currentPassword e newPassword são obrigatórios',
+      );
+    }
+    await this.authService.changePassword(
+      user.userId ?? user.sub,
+      body.currentPassword,
+      body.newPassword,
+    );
+    return { success: true };
+  }
+
+  // =========================
   // ME
   // =========================
   @ApiBearerAuth()

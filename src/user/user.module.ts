@@ -8,9 +8,10 @@ import { Permission } from 'src/entities/permission/permission.entity';
 import { Company } from 'src/company/company.entity';
 import { Department } from 'src/entities/department/department.entity';
 import { Cargo } from 'src/entities/cargo/cargo.entity';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Plan, Permission, Company, Department, Cargo]),],
+    imports: [TypeOrmModule.forFeature([User, Plan, Permission, Company, Department, Cargo]), MailModule],
     controllers: [
         UserController,],
     providers: [

@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -238,5 +238,27 @@ export class AuthService {
   // §15 — Sessão única: limpa currentSessionId ao deslogar
   async logout(userId: string): Promise<void> {
     await this.userRepository.update({ uid: userId }, { currentSessionId: null });
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { uid: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado');
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) throw new UnauthorizedException('Senha atual incorreta');
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException(
+        'A nova senha deve ter pelo menos 8 caracteres',
+      );
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.mustChangePassword = false;
+    await this.userRepository.save(user);
   }
 }
