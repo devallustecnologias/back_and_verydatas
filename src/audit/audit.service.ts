@@ -83,7 +83,10 @@ export class AuditService {
     }
 
     if (to) {
-      query.andWhere('log.createdAt <= :to', { to: new Date(to) });
+      // inclusivo: até o final do dia informado
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      query.andWhere('log.createdAt <= :to', { to: toDate });
     }
 
     query.skip((page - 1) * limit).take(limit);

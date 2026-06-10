@@ -222,7 +222,17 @@ export class UserService {
         return this.userRepo.save(user);
     }
 
-    async createOperator(dto: CreateUserDto): Promise<User> {
+    async createOperator(dto: CreateUserDto, currentUser?: { role?: string; companyId?: number }): Promise<User> {
+        if (currentUser?.role === 'empresa') {
+            if (currentUser.companyId == null) {
+                throw new ForbiddenException('Conta sem empresa vinculada');
+            }
+            if (dto.companyId != null && dto.companyId !== currentUser.companyId) {
+                throw new ForbiddenException('Não é permitido criar usuário em outra empresa');
+            }
+            dto.companyId = currentUser.companyId;
+        }
+
         if (!dto.companyId) {
             throw new BadRequestException('Empresa é obrigatória');
         }
@@ -284,7 +294,7 @@ export class UserService {
 
         return this.userRepo.save(user);
     }
-    async findOne(uid: string, currentUser?: { role?: string; userId?: string }): Promise<User> {
+    async findOne(uid: string, currentUser?: { role?: string; userId?: string; companyId?: number }): Promise<User> {
         // §11 operador só pode ver o próprio registro
         if (currentUser && currentUser.role === 'operador' && uid !== currentUser.userId) {
             throw new ForbiddenException('Acesso negado: operador só pode visualizar o próprio perfil');
@@ -299,11 +309,37 @@ export class UserService {
             throw new NotFoundException('Usuário não encontrado');
         }
 
+        // Empresa só pode ver usuários da própria empresa
+        if (currentUser?.role === 'empresa') {
+            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+                throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
+            }
+        }
+
         return user;
     }
 
-    async update(uid: string, dto: UpdateUserDto): Promise<User> {
-        const user = await this.findOne(uid);
+    async update(uid: string, dto: UpdateUserDto, currentUser?: { role?: string; companyId?: number }): Promise<User> {
+        const user = await this.userRepo.findOne({
+            where: { uid },
+            relations: ['company', 'plan'],
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuário não encontrado');
+        }
+
+        // Tenant check: não-master só pode editar usuários da própria empresa
+        if (currentUser && currentUser.role !== 'master') {
+            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+                throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
+            }
+        }
+
+        // Validar se está tentando mover para outra empresa
+        if (currentUser && currentUser.role !== 'master' && dto.companyId != null && dto.companyId !== currentUser.companyId) {
+            throw new ForbiddenException('Apenas master pode mover usuário de empresa');
+        }
 
         if (user.role === UserRole.MASTER) {
             throw new BadRequestException('Não é permitido editar usuário MASTER');
@@ -314,15 +350,23 @@ export class UserService {
         }
 
         if (dto.companyId) {
-            const company = await this.companyRepo.findOne({
-                where: { id: dto.companyId },
-            });
+            // Se mudar de empresa, carregar com relations e validar limite
+            if (user.company?.id !== dto.companyId) {
+                const company = await this.findCompany(dto.companyId);
+                await this.assertUserLimit(company!);
+                user.company = company;
+            } else {
+                // Mesma empresa, busca simples
+                const company = await this.companyRepo.findOne({
+                    where: { id: dto.companyId },
+                });
 
-            if (!company) {
-                throw new NotFoundException('Empresa não encontrada');
+                if (!company) {
+                    throw new NotFoundException('Empresa não encontrada');
+                }
+
+                user.company = company;
             }
-
-            user.company = company;
         }
 
         const targetCompanyId = user.company?.id;
@@ -333,15 +377,47 @@ export class UserService {
         }
 
         if (dto.permissionIds) {
-            const permissions = await this.permissionRepo.find({
-                where: {
-                    id: In(dto.permissionIds),
-                },
-            });
+            const permissions = dto.permissionIds.length
+                ? await this.permissionRepo.find({
+                    where: { id: In(dto.permissionIds) },
+                })
+                : [];
 
-            user.plan.permissions = permissions;
+            if (permissions.length !== dto.permissionIds.length) {
+                throw new BadRequestException('Permissões inválidas');
+            }
 
-            await this.planRepo.save(user.plan);
+            // Não-master: permissões devem estar contidas no plano da empresa do usuário
+            if (currentUser && currentUser.role !== 'master' && user.company) {
+                const companyWithPlan = await this.findCompany(user.company.id);
+                const allowedIds =
+                    companyWithPlan?.plan?.permissions.map(p => p.id) ?? [];
+                const outside = dto.permissionIds.filter(
+                    id => !allowedIds.includes(id),
+                );
+                if (outside.length > 0) {
+                    throw new BadRequestException(
+                        'Permissões inválidas para esta empresa',
+                    );
+                }
+            }
+
+            // Plano compartilhado (da empresa ou do sistema): mutar afetaria todos os
+            // usuários que o compartilham — cria wrapper custom individual no lugar
+            const isSharedPlan =
+                user.plan.isSystem || !user.plan.name.startsWith('custom-');
+
+            if (isSharedPlan) {
+                const customPlan = this.planRepo.create({
+                    name: `custom-${user.username}-${user.uid.slice(0, 8)}`,
+                    isSystem: false,
+                    permissions,
+                });
+                user.plan = await this.planRepo.save(customPlan);
+            } else {
+                user.plan.permissions = permissions;
+                await this.planRepo.save(user.plan);
+            }
         }
 
         if (dto.username) {
@@ -352,6 +428,14 @@ export class UserService {
             user.email = dto.email;
         }
 
+        if (dto.cpf !== undefined) {
+            user.cpf = dto.cpf;
+        }
+
+        if (dto.whatsapp !== undefined) {
+            user.whatsapp = dto.whatsapp;
+        }
+
         if (dto.password) {
             user.password = await bcrypt.hash(dto.password, 10);
         }
@@ -359,8 +443,22 @@ export class UserService {
         return this.userRepo.save(user);
     }
 
-    async remove(uid: string): Promise<void> {
-        const user = await this.findOne(uid);
+    async remove(uid: string, currentUser?: { role?: string; companyId?: number }): Promise<void> {
+        const user = await this.userRepo.findOne({
+            where: { uid },
+            relations: ['company'],
+        });
+
+        if (!user) {
+            throw new NotFoundException('Usuário não encontrado');
+        }
+
+        // Tenant check: não-master só pode remover usuários da própria empresa
+        if (currentUser && currentUser.role !== 'master') {
+            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+                throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
+            }
+        }
 
         if (user.role === UserRole.MASTER) {
             throw new BadRequestException('Não é permitido remover MASTER');
@@ -407,14 +505,26 @@ export class UserService {
         user.status = status;
         return this.userRepo.save(user);
     }
-    async getUserPermissions(userId: string): Promise<Permission[]> {
+    async getUserPermissions(userId: string, currentUser?: { role?: string; userId?: string; companyId?: number }): Promise<Permission[]> {
         const user = await this.userRepo.findOne({
             where: { uid: userId },
-            relations: ['plan', 'plan.permissions'],
+            relations: ['plan', 'plan.permissions', 'company'],
         });
 
         if (!user) {
             throw new NotFoundException('Usuário não encontrado');
+        }
+
+        // Operador só pode ver suas próprias permissões
+        if (currentUser?.role === 'operador' && userId !== currentUser.userId) {
+            throw new ForbiddenException('Acesso negado: operador só pode visualizar suas próprias permissões');
+        }
+
+        // Empresa só pode ver permissões de usuários da própria empresa
+        if (currentUser?.role === 'empresa') {
+            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+                throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
+            }
         }
 
         return user.plan?.permissions ?? [];
@@ -445,10 +555,14 @@ export class UserService {
         // TENANT SCOPING: não-master vê só sua empresa; operador vê só a si mesmo
         if (currentUser && currentUser.role === 'operador') {
             query.andWhere('user.uid = :uid', { uid: currentUser.userId });
-        } else if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
-            query.andWhere('user.company_id = :companyId', {
-                companyId: currentUser.companyId,
-            });
+        } else if (currentUser && currentUser.role !== 'master') {
+            if (currentUser.companyId == null) {
+                query.andWhere('1 = 0'); // fail-closed: conta não-master sem empresa não vê nada
+            } else {
+                query.andWhere('user.company_id = :companyId', {
+                    companyId: currentUser.companyId,
+                });
+            }
         }
 
         // BUSCA POR NOME

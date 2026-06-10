@@ -161,15 +161,22 @@ export class AuthService {
 
       if (ac) {
         // Horário
-        if (ac.scheduleEnabled && ac.allowedDays?.length) {
+        if (ac.scheduleEnabled) {
           const tz = ac.timezone || 'America/Sao_Paulo';
           const currentDay = currentDayInTimezone(tz);
           const currentTime = currentTimeInTimezone(tz);
 
-          const dayAllowed = ac.allowedDays.includes(currentDay);
+          // allowedDays vazio = todos os dias permitidos (valida apenas a janela de horário)
+          const dayAllowed =
+            !ac.allowedDays?.length || ac.allowedDays.includes(currentDay);
+
           let timeAllowed = true;
           if (ac.startTime && ac.endTime) {
-            timeAllowed = currentTime >= ac.startTime && currentTime <= ac.endTime;
+            timeAllowed =
+              ac.startTime <= ac.endTime
+                ? currentTime >= ac.startTime && currentTime <= ac.endTime
+                : // janela cruza meia-noite (ex. 22:00–06:00)
+                  currentTime >= ac.startTime || currentTime <= ac.endTime;
           }
 
           if (!dayAllowed || !timeAllowed) {
@@ -189,7 +196,6 @@ export class AuthService {
     }
 
     const permissions = await this.userService.getUserPermissions(user.uid);
-    console.log('User with permissions:', permissions);
 
     // §15 — Login OK: zera contador de falhas e lockout; gera sessão única
     const sessionId = randomUUID();

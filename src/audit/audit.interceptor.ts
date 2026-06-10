@@ -19,9 +19,11 @@ function deriveAction(method: string, url: string): string {
 
   if (path.includes('/creditos/estorno')) return 'CREDIT_ESTORNO';
   if (path.includes('/creditos')) return 'CREDIT_ADD';
+  if (path.includes('/menus')) return 'MENU_CHANGE';
   if (path.includes('/permissions') || path.includes('/permissoes')) return 'PERMISSION_CHANGE';
   if (path.includes('/users') || path.includes('/usuarios')) return 'USER_CHANGE';
-  if (path.includes('/planos') || path.includes('/plans')) return 'USER_CHANGE';
+  if (path.includes('/planos') || path.includes('/plans')) return 'PLAN_CHANGE';
+  if (path.includes('/companies') || path.includes('/empresas')) return 'COMPANY_CHANGE';
 
   // Fallback: method + path normalizado
   return `${method} ${path}`;
@@ -43,9 +45,9 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    // Não duplicar /auth/login (já logado explicitamente no AuthService)
+    // Não duplicar /auth/login e /auth/logout (já logados explicitamente no AuthController/AuthService)
     const pathLower = url.split('?')[0].toLowerCase();
-    if (pathLower.endsWith('/auth/login')) {
+    if (pathLower.endsWith('/auth/login') || pathLower.endsWith('/auth/logout')) {
       return next.handle();
     }
 

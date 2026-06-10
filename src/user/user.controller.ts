@@ -73,8 +73,8 @@ export class UserController {
     @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Post('operator')
     @ApiOperation({ summary: 'Criar operador' })
-    createOperator(@Body() dto: CreateUserDto) {
-        return this.userService.createOperator(dto);
+    createOperator(@Body() dto: CreateUserDto, @User() user: any) {
+        return this.userService.createOperator(dto, user);
     }
 
     @Roles(UserRole.MASTER, UserRole.EMPRESA)
@@ -83,8 +83,9 @@ export class UserController {
     update(
         @Param('uid') uid: string,
         @Body() dto: UpdateUserDto,
+        @User() user: any,
     ) {
-        return this.userService.update(uid, dto);
+        return this.userService.update(uid, dto, user);
     }
 
     @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
@@ -111,15 +112,14 @@ export class UserController {
     @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Delete(':uid')
     @ApiOperation({ summary: 'Remover usuário' })
-    remove(@Param('uid') uid: string) {
-        return this.userService.remove(uid);
+    remove(@Param('uid') uid: string, @User() user: any) {
+        return this.userService.remove(uid, user);
     }
 
     @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Get(':userId/permissions')
     @ApiOperation({ summary: 'Listar permissões do usuário' })
     getUserPermissions(@Param('userId') userId: string, @User() user: any) {
-        console.log("User do interceptor:", user)
-        return this.userService.getUserPermissions(userId);
+        return this.userService.getUserPermissions(userId, user);
     }
 }

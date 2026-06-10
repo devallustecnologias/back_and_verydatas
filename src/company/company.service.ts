@@ -52,9 +52,9 @@ export class CompanyService {
       }
       : {};
 
-    // TENANT SCOPING
-    if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
-      where.id = currentUser.companyId;
+    // TENANT SCOPING (fail-closed: non-master sem companyId não acessa nada)
+    if (currentUser && currentUser.role !== 'master') {
+      where.id = currentUser.companyId ?? -1;
     }
 
     const [companies, total] =
@@ -143,12 +143,13 @@ export class CompanyService {
       ]
     : {};
 
-  // TENANT SCOPING
-  if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
+  // TENANT SCOPING (fail-closed: non-master sem companyId não acessa nada)
+  if (currentUser && currentUser.role !== 'master') {
+    const companyIdValue = currentUser.companyId ?? -1;
     if (Array.isArray(where)) {
-      where = where.map((w) => ({ ...w, company: { id: currentUser.companyId } }));
+      where = where.map((w) => ({ ...w, company: { id: companyIdValue } }));
     } else {
-      where = { ...where, company: { id: currentUser.companyId } };
+      where = { ...where, company: { id: companyIdValue } };
     }
   }
 
@@ -467,18 +468,34 @@ async findUserCreditDetails(
   };
 }
 
-  async findAll(currentUser?: { role?: string; companyId?: number }): Promise<Company[]> {
-    const where: any = {};
+  async findAll(
+    page = 1,
+    limit = 10,
+    search?: string,
+    currentUser?: { role?: string; companyId?: number },
+  ) {
+    const where: any = search ? { name: ILike(`%${search}%`) } : {};
 
-    // TENANT SCOPING
-    if (currentUser && currentUser.role !== 'master' && currentUser.companyId) {
-      where.id = currentUser.companyId;
+    // TENANT SCOPING (fail-closed: non-master sem companyId não acessa nada)
+    if (currentUser && currentUser.role !== 'master') {
+      where.id = currentUser.companyId ?? -1;
     }
 
-    return this.companyRepo.find({
+    const [data, total] = await this.companyRepo.findAndCount({
       where,
       relations: ['users', 'plan'],
+      order: { id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number): Promise<Company> {
