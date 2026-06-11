@@ -130,6 +130,96 @@ export class AuthController {
   }
 
   // =========================
+  // REFRESH
+  // =========================
+  @Public()
+  @ApiOperation({ summary: 'Troca refresh token por novo par de tokens (rotação)' })
+  @ApiResponse({ status: 200, schema: { example: { accessToken: '...', refreshToken: '...' } } })
+  @ApiResponse({ status: 401, description: 'Refresh inválido/expirado' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['refreshToken'],
+      properties: { refreshToken: { type: 'string' } },
+    },
+  })
+  @Post('refresh')
+  async refresh(@Body() body: { refreshToken: string }) {
+    if (!body?.refreshToken) {
+      throw new BadRequestException('refreshToken é obrigatório');
+    }
+    return this.authService.refresh(body.refreshToken);
+  }
+
+  // =========================
+  // 2FA — LOGIN (2ª etapa)
+  // =========================
+  @Public()
+  @ApiOperation({ summary: 'Segunda etapa do login quando 2FA está ativo' })
+  @ApiResponse({ status: 200, schema: { example: { accessToken: '...', refreshToken: '...' } } })
+  @ApiResponse({ status: 401, description: 'Código/token inválido' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['twoFactorToken', 'code'],
+      properties: {
+        twoFactorToken: { type: 'string' },
+        code: { type: 'string', example: '123456' },
+      },
+    },
+  })
+  @Post('2fa/login')
+  async login2fa(
+    @Body() body: { twoFactorToken: string; code: string },
+    @Ip() ip: string,
+  ) {
+    if (!body?.twoFactorToken || !body?.code) {
+      throw new BadRequestException('twoFactorToken e code são obrigatórios');
+    }
+    return this.authService.loginWith2fa(body.twoFactorToken, body.code, ip);
+  }
+
+  // =========================
+  // 2FA — SETUP / ENABLE / DISABLE
+  // =========================
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gera secret TOTP + QR code para ativar 2FA' })
+  @Post('2fa/setup')
+  async setup2fa(@UserDecorator() user: any) {
+    return this.authService.setup2fa(user.userId ?? user.sub);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Confirma código do app e ativa o 2FA' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['code'],
+      properties: { code: { type: 'string', example: '123456' } },
+    },
+  })
+  @Post('2fa/enable')
+  async enable2fa(@Body() body: { code: string }, @UserDecorator() user: any) {
+    if (!body?.code) throw new BadRequestException('code é obrigatório');
+    return this.authService.enable2fa(user.userId ?? user.sub, body.code);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Desativa o 2FA (exige código válido)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['code'],
+      properties: { code: { type: 'string', example: '123456' } },
+    },
+  })
+  @Post('2fa/disable')
+  async disable2fa(@Body() body: { code: string }, @UserDecorator() user: any) {
+    if (!body?.code) throw new BadRequestException('code é obrigatório');
+    return this.authService.disable2fa(user.userId ?? user.sub, body.code);
+  }
+
+  // =========================
   // LOGOUT
   // =========================
   @ApiBearerAuth()

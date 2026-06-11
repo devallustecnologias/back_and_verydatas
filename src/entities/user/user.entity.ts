@@ -134,4 +134,28 @@ export class User {
   // Senha provisória gerada pelo sistema — usuário deve trocar no primeiro acesso
   @Column({ type: 'boolean', default: false })
   mustChangePassword!: boolean;
+
+  // Refresh token ativo (hash sha256) — rotação a cada uso; null = sem refresh válido
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Exclude()
+  refreshTokenHash?: string | null;
+
+  // 2FA TOTP: secret base32 (definido no setup, confirmado no enable)
+  @Column({ type: 'varchar', nullable: true })
+  @Exclude()
+  twoFactorSecret?: string | null;
+
+  // 2FA TOTP habilitado (exigido no login)
+  @Column({ type: 'boolean', default: false })
+  twoFactorEnabled!: boolean;
+
+  // 2FA: último timeStep TOTP aceito — rejeita replay do mesmo código na janela
+  @Column({ type: 'int', nullable: true })
+  @Exclude()
+  twoFactorLastTimeStep?: number | null;
+
+  // 2FA: hash do twoFactorToken pendente — uso único na 2ª etapa do login
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Exclude()
+  twoFactorTokenHash?: string | null;
 }

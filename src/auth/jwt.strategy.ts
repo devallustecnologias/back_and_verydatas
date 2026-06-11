@@ -26,6 +26,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Tokens especiais (type 'refresh'/'2fa') NÃO valem como access token —
+    // sem esta checagem, um twoFactorToken passaria em rotas protegidas
+    if (payload.type) {
+      throw new UnauthorizedException();
+    }
+
     // §15 — Carrega user do banco para validações em tempo-real
     const user = await this.userRepository.findOne({
       where: { uid: payload.sub },
@@ -74,6 +80,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       companyId: payload.companyId,
       permissions: payload.permissions,
       mustChangePassword: user.mustChangePassword ?? false,
+      twoFactorEnabled: user.twoFactorEnabled ?? false,
     };
   }
 }
