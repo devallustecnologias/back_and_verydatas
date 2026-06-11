@@ -74,6 +74,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       companyId: payload.companyId,
       permissions: payload.permissions,
       mustChangePassword: user.mustChangePassword ?? false,
+      twoFactorEnabled: user.twoFactorEnabled ?? false,
     };
   }
 }

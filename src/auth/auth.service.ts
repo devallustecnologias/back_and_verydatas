@@ -4,7 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
+import * as otplib from 'otplib';
+import * as QRCode from 'qrcode';
 import { User, UserRole, UserStatus } from '../entities/user/user.entity';
 import { CompanyStatus } from '../company/company.entity';
 import { OAuth2Client } from 'google-auth-library';
@@ -48,6 +50,11 @@ function currentTimeInTimezone(timezone: string): string {
   const h = hour === '24' ? '00' : hour;
   return `${h.padStart(2, '0')}:${minute.padStart(2, '0')}`;
 }
+
+/** TTL do refresh token (config por env) */
+const REFRESH_TTL = process.env.JWT_REFRESH_TTL || '7d';
+/** Janela de inatividade — mesma regra do jwt.strategy (30 min) */
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -94,6 +101,59 @@ export class AuthService {
     }
 
     return userCreate;
+  }
+
+  /**
+   * Gera sessão única + par de tokens (access + refresh com rotação).
+   * Usado no login com senha e no login 2FA.
+   */
+  private async issueTokens(user: User, ip: string, detail: string) {
+    const permissions = await this.userService.getUserPermissions(user.uid);
+
+    // §15 — Login OK: zera contador de falhas e lockout; gera sessão única
+    const sessionId = randomUUID();
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.currentSessionId = sessionId;
+    user.lastActivityAt = new Date();
+
+    const payload = {
+      sub: user.uid,
+      username: user.username,
+      role: user.role,
+      companyId: user.company?.id ?? null,
+      permissions,
+      sid: sessionId, // §15 — sessão única
+    };
+
+    let accessToken: string;
+    let refreshToken: string;
+    try {
+      accessToken = this.jwtService.sign(payload);
+      refreshToken = this.jwtService.sign(
+        { sub: user.uid, sid: sessionId, type: 'refresh' },
+        { expiresIn: REFRESH_TTL },
+      );
+    } catch (error) {
+      console.error('Erro ao gerar token:', error);
+      throw new InternalServerErrorException('Erro ao realizar o login.');
+    }
+
+    // Rotação: só o último refresh emitido é válido
+    user.refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+    await this.userRepository.save(user);
+
+    // Auditoria: LOGIN (não bloqueia a resposta mesmo em falha)
+    void this.auditService.log({
+      action: 'LOGIN',
+      userId: user.uid,
+      username: user.username,
+      companyId: user.company?.id ?? null,
+      ip: normalizeIp(ip),
+      detail,
+    });
+
+    return { accessToken, refreshToken };
   }
 
   async login(email: string, password: string, ip: string = '') {
@@ -195,49 +255,118 @@ export class AuthService {
       }
     }
 
+    // 2FA habilitado: não cria sessão ainda — exige código TOTP em /auth/2fa/login
+    if (user.twoFactorEnabled) {
+      const twoFactorToken = this.jwtService.sign(
+        { sub: user.uid, type: '2fa' },
+        { expiresIn: '5m' },
+      );
+      return { requires2fa: true, twoFactorToken };
+    }
+
+    return this.issueTokens(user, ip, `Login via email: ${user.email}`);
+  }
+
+  /** Segunda etapa do login com 2FA: valida o token temporário + código TOTP */
+  async loginWith2fa(twoFactorToken: string, code: string, ip: string = '') {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(twoFactorToken);
+    } catch {
+      throw new UnauthorizedException('Sessão de 2FA expirada — faça login novamente');
+    }
+    if (payload?.type !== '2fa') {
+      throw new UnauthorizedException('Token inválido');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { uid: payload.sub },
+      relations: ['company'],
+    });
+    if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new UnauthorizedException('Token inválido');
+    }
+
+    // Re-checa status (a janela de 5min pode cruzar um bloqueio)
+    if (user.status !== UserStatus.ATIVO) {
+      throw new UnauthorizedException('Acesso negado');
+    }
+
+    const verifyResult = otplib.verifySync({ token: code, secret: user.twoFactorSecret });
+    if (!verifyResult.valid) {
+      throw new UnauthorizedException('Código 2FA inválido');
+    }
+
+    return this.issueTokens(user, ip, `Login via email + 2FA: ${user.email}`);
+  }
+
+  // §15 — Sessão única: limpa currentSessionId ao deslogar
+  async logout(userId: string): Promise<void> {
+    await this.userRepository.update(
+      { uid: userId },
+      { currentSessionId: null, refreshTokenHash: null },
+    );
+  }
+
+  /** Troca refresh token válido por novo par access+refresh (rotação) */
+  async refresh(refreshToken: string) {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
+    if (payload?.type !== 'refresh') {
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { uid: payload.sub },
+      relations: ['company'],
+    });
+    if (!user || user.status !== UserStatus.ATIVO) {
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
+
+    // §15 — Sessão única: refresh só vale para a sessão ativa
+    if (!payload.sid || user.currentSessionId !== payload.sid) {
+      throw new UnauthorizedException('Sessão encerrada: login em outro dispositivo');
+    }
+
+    // Rotação: precisa ser exatamente o último refresh emitido
+    const hash = createHash('sha256').update(refreshToken).digest('hex');
+    if (!user.refreshTokenHash || user.refreshTokenHash !== hash) {
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
+
+    // §15 — Inatividade: refresh não ressuscita sessão parada há 30min+
+    if (
+      user.lastActivityAt != null &&
+      Date.now() - user.lastActivityAt.getTime() > INACTIVITY_TIMEOUT_MS
+    ) {
+      throw new UnauthorizedException('Sessão expirada por inatividade');
+    }
+
     const permissions = await this.userService.getUserPermissions(user.uid);
-
-    // §15 — Login OK: zera contador de falhas e lockout; gera sessão única
-    const sessionId = randomUUID();
-    user.failedLoginAttempts = 0;
-    user.lockedUntil = null;
-    user.currentSessionId = sessionId;
-    user.lastActivityAt = new Date();
-    await this.userRepository.save(user);
-
-    const payload = {
+    const accessPayload = {
       sub: user.uid,
       username: user.username,
       role: user.role,
       companyId: user.company?.id ?? null,
       permissions,
-      sid: sessionId, // §15 — sessão única
+      sid: payload.sid,
     };
+    const accessToken = this.jwtService.sign(accessPayload);
+    const newRefreshToken = this.jwtService.sign(
+      { sub: user.uid, sid: payload.sid, type: 'refresh' },
+      { expiresIn: REFRESH_TTL },
+    );
 
-    let token: string;
-    try {
-      token = this.jwtService.sign(payload);
-    } catch (error) {
-      console.error('Erro ao gerar token:', error);
-      throw new InternalServerErrorException('Erro ao realizar o login.');
-    }
+    user.refreshTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
+    user.lastActivityAt = new Date();
+    await this.userRepository.save(user);
 
-    // Auditoria: LOGIN (não bloqueia a resposta mesmo em falha)
-    void this.auditService.log({
-      action: 'LOGIN',
-      userId: user.uid,
-      username: user.username,
-      companyId: user.company?.id ?? null,
-      ip: normalizeIp(ip),
-      detail: `Login via email: ${user.email}`,
-    });
-
-    return { accessToken: token };
-  }
-
-  // §15 — Sessão única: limpa currentSessionId ao deslogar
-  async logout(userId: string): Promise<void> {
-    await this.userRepository.update({ uid: userId }, { currentSessionId: null });
+    return { accessToken, refreshToken: newRefreshToken };
   }
 
   async changePassword(
@@ -260,5 +389,81 @@ export class AuthService {
     user.password = await bcrypt.hash(newPassword, 10);
     user.mustChangePassword = false;
     await this.userRepository.save(user);
+  }
+
+  /** Gera secret TOTP + QR — só ativa de fato no enable (após confirmar código) */
+  async setup2fa(userId: string) {
+    const user = await this.userRepository.findOne({ where: { uid: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado');
+    if (user.twoFactorEnabled) {
+      throw new BadRequestException('2FA já está ativo nesta conta');
+    }
+
+    const secret = otplib.generateSecret();
+    user.twoFactorSecret = secret;
+    await this.userRepository.save(user);
+
+    const otpauthUrl = otplib.generateURI({
+      issuer: 'Verytas Data',
+      label: user.email,
+      secret,
+    });
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+    return { secret, otpauthUrl, qrDataUrl };
+  }
+
+  /** Confirma o código do app e liga o 2FA */
+  async enable2fa(userId: string, code: string) {
+    const user = await this.userRepository.findOne({ where: { uid: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado');
+    if (!user.twoFactorSecret) {
+      throw new BadRequestException('Execute o setup do 2FA antes de ativar');
+    }
+
+    const verifyResult = otplib.verifySync({ token: code, secret: user.twoFactorSecret });
+    if (!verifyResult.valid) {
+      throw new UnauthorizedException('Código 2FA inválido');
+    }
+
+    user.twoFactorEnabled = true;
+    await this.userRepository.save(user);
+
+    void this.auditService.log({
+      action: '2FA_ENABLE',
+      userId: user.uid,
+      username: user.username,
+      companyId: null,
+      ip: null,
+      detail: '2FA TOTP ativado',
+    });
+    return { success: true };
+  }
+
+  /** Desliga o 2FA (exige código válido) */
+  async disable2fa(userId: string, code: string) {
+    const user = await this.userRepository.findOne({ where: { uid: userId } });
+    if (!user) throw new NotFoundException('Usuário não encontrado');
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('2FA não está ativo nesta conta');
+    }
+
+    const verifyResult = otplib.verifySync({ token: code, secret: user.twoFactorSecret });
+    if (!verifyResult.valid) {
+      throw new UnauthorizedException('Código 2FA inválido');
+    }
+
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    await this.userRepository.save(user);
+
+    void this.auditService.log({
+      action: '2FA_DISABLE',
+      userId: user.uid,
+      username: user.username,
+      companyId: null,
+      ip: null,
+      detail: '2FA TOTP desativado',
+    });
+    return { success: true };
   }
 }

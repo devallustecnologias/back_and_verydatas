@@ -23,7 +23,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
     TypeOrmModule.forFeature([User, Permission, CompanyAccessControl]),
     JwtModule.register({
       secret: JWT_SECRET,
-      signOptions: { expiresIn: '12h' },
+      signOptions: { expiresIn: process.env.JWT_ACCESS_TTL || '1h' },
     }),
   ],
   controllers: [AuthController],
