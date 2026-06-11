@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { Menu } from 'src/entities/menu/menu.entity';
 import { Plan } from 'src/entities/plan/plan.entity';
+import { Company } from 'src/company/company.entity';
+import { CompanyAccessControl } from 'src/entities/access-control/company-access-control.entity';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 
@@ -37,6 +39,12 @@ export class MenuService implements OnModuleInit {
 
     @InjectRepository(Plan)
     private readonly planRepo: Repository<Plan>,
+
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
+
+    @InjectRepository(CompanyAccessControl)
+    private readonly accessControlRepo: Repository<CompanyAccessControl>,
   ) {}
 
   // ----------------------------------------------------------------
@@ -198,5 +206,119 @@ export class MenuService implements OnModuleInit {
 
     plan.menus = menus;
     return this.planRepo.save(plan);
+  }
+
+  // ----------------------------------------------------------------
+  // GET /menus/me — menus do usuário logado
+  // ----------------------------------------------------------------
+  async getMyMenus(currentUser: {
+    role: string;
+    companyId: number | null;
+  }): Promise<{
+    restricted: boolean;
+    allowedKeys: string[];
+    allKeys: string[];
+  }> {
+    // Passo 1: Sempre incluir allKeys (todos os menus não deletados)
+    const allMenus = await this.menuRepo.find({ where: { deletedAt: IsNull() } });
+    const allKeys = allMenus.map((m) => m.key);
+
+    // Passo 2: Se master, sem restrição
+    if (currentUser.role === 'master') {
+      return {
+        restricted: false,
+        allowedKeys: [],
+        allKeys,
+      };
+    }
+
+    // Passo 3: Não-master sem companyId → fail-closed
+    if (!currentUser.companyId) {
+      return {
+        restricted: true,
+        allowedKeys: [],
+        allKeys,
+      };
+    }
+
+    // Passo 4: Buscar empresa com plano
+    const company = await this.companyRepo.findOne({
+      where: { id: currentUser.companyId },
+      relations: ['plan', 'plan.menus'],
+    });
+
+    if (!company) {
+      return {
+        restricted: true,
+        allowedKeys: [],
+        allKeys,
+      };
+    }
+
+    // Passo 5: Camada plano
+    const planKeys = company.plan?.menus ? company.plan.menus.map((m) => m.key) : [];
+    const planActive = planKeys.length > 0;
+
+    // Passo 6: Camada árvore (access control)
+    let treeKeys: string[] = [];
+    let treeActive = false;
+
+    const accessControl = await this.accessControlRepo.findOne({
+      where: { company: { id: currentUser.companyId } },
+    });
+
+    const checkedNodeIds = accessControl?.menuPermissions?.checkedNodes ?? [];
+    if (Array.isArray(checkedNodeIds) && checkedNodeIds.length > 0) {
+      treeActive = true;
+      const numericIds = checkedNodeIds
+        .map((id) => {
+          const num = Number(id);
+          return isNaN(num) ? null : num;
+        })
+        .filter((id) => id !== null) as number[];
+
+      if (numericIds.length > 0) {
+        const treeMenus = await this.menuRepo.find({
+          where: { id: In(numericIds) },
+        });
+        treeKeys = treeMenus.map((m) => m.key);
+      }
+    }
+
+    // Passo 7: Combinação (regra de restrição)
+    if (!planActive && !treeActive) {
+      // Nenhuma camada ativa → sem restrição (backward compatible)
+      return {
+        restricted: false,
+        allowedKeys: [],
+        allKeys,
+      };
+    }
+
+    if (planActive && !treeActive) {
+      // Só plano ativo
+      return {
+        restricted: true,
+        allowedKeys: planKeys,
+        allKeys,
+      };
+    }
+
+    if (!planActive && treeActive) {
+      // Só árvore ativa
+      return {
+        restricted: true,
+        allowedKeys: treeKeys,
+        allKeys,
+      };
+    }
+
+    // Ambas ativas → interseção
+    const intersection = planKeys.filter((key) => treeKeys.includes(key));
+    return {
+      restricted: true,
+      allowedKeys: intersection,
+      allKeys,
+    };
   }
 }

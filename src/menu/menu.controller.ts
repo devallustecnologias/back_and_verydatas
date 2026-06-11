@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -20,6 +21,16 @@ import { SetPlanMenusDto } from './dto/set-plan-menus.dto';
 @Controller()
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}
+
+  // GET /menus/me — menus efetivos do usuário logado
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
+  @Get('menus/me')
+  @ApiOperation({
+    summary: 'Menus efetivos do usuário logado (plano ∩ árvore da empresa)',
+  })
+  getMyMenus(@Req() req: any) {
+    return this.menuService.getMyMenus(req.user);
+  }
 
   // GET /menus — árvore de menus (MASTER e EMPRESA)
   @Roles(UserRole.MASTER, UserRole.EMPRESA)
