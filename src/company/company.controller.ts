@@ -18,6 +18,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/
 import { Company } from './company.entity';
 import { CompanyCnpjDataDto } from './dto/company-cnpj-data.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Public } from 'src/auth/decorators/public.decorator';
 import { UserRole } from 'src/entities/user/user.entity';
 import { User } from 'src/auth/user.decorator';
 
@@ -332,5 +333,22 @@ export class CompanyController {
     @Param('cnpj') cnpj: string,
   ): Promise<CompanyCnpjDataDto> {
     return this.companyService.getDataByCnpj(cnpj);
+  }
+
+  // White-label: tela de login busca a marca ANTES de autenticar → rota pública.
+  // Expõe somente campos de marca (nada de contato/CNPJ/representante).
+  @Public()
+  @Get('branding/:domain')
+  @ApiOperation({ summary: 'Marca da empresa pelo domínio (público, p/ login white-label)' })
+  @ApiParam({ name: 'domain', example: 'minhaempresa' })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: { name: 'Minha Empresa', tradeName: 'Minha Empresa LTDA', logoUrl: 'https://...' },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Domínio não encontrado' })
+  getBranding(@Param('domain') domain: string) {
+    return this.companyService.getBranding(domain);
   }
 }

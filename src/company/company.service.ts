@@ -800,4 +800,19 @@ async getDataByCnpj(cnpjNumber: string): Promise<CompanyCnpjDataDto> {
     contactWhatsapp: data.ddd_telefone_1 || '',
   };
 }
+
+  /** White-label: só campos de marca — rota pública, não vazar dados cadastrais */
+  async getBranding(domain: string) {
+    const company = await this.companyRepo.findOne({
+      where: { domain: domain.toLowerCase().trim() },
+    });
+    if (!company) {
+      throw new NotFoundException('Domínio não encontrado');
+    }
+    return {
+      name: company.name,
+      tradeName: company.tradeName ?? null,
+      logoUrl: company.logoUrl ?? null,
+    };
+  }
 }
