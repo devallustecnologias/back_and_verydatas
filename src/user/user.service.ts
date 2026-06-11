@@ -150,12 +150,12 @@ export class UserService {
             return; // sem limite configurado
         }
 
-        // conta usuários ativos (não-EXCLUIDO e não soft-deleted) da empresa
+        // conta usuários ativos (não-EXCLUIDO) da empresa
+        // soft-deleted já é filtrado automaticamente pelo TypeORM (deletedAt IS NULL)
         const activeCount = await this.userRepo
             .createQueryBuilder('u')
             .where('u.company_id = :companyId', { companyId: company.id })
             .andWhere('u.status != :excluido', { excluido: UserStatus.EXCLUIDO })
-            .andWhere('u.deleted_at IS NULL')
             .getCount();
 
         if (activeCount >= plan.userLimit) {
