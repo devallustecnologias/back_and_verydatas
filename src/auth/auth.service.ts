@@ -130,8 +130,10 @@ export class AuthService {
     let refreshToken: string;
     try {
       accessToken = this.jwtService.sign(payload);
+      // jti aleatório: sem ele, dois refresh emitidos no mesmo segundo seriam
+      // a MESMA string JWT (iat em segundos) e a rotação viraria no-op
       refreshToken = this.jwtService.sign(
-        { sub: user.uid, sid: sessionId, type: 'refresh' },
+        { sub: user.uid, sid: sessionId, type: 'refresh', jti: randomUUID() },
         { expiresIn: REFRESH_TTL },
       );
     } catch (error) {
@@ -358,7 +360,7 @@ export class AuthService {
     };
     const accessToken = this.jwtService.sign(accessPayload);
     const newRefreshToken = this.jwtService.sign(
-      { sub: user.uid, sid: payload.sid, type: 'refresh' },
+      { sub: user.uid, sid: payload.sid, type: 'refresh', jti: randomUUID() },
       { expiresIn: REFRESH_TTL },
     );
 
