@@ -148,4 +148,14 @@ export class User {
   // 2FA TOTP habilitado (exigido no login)
   @Column({ type: 'boolean', default: false })
   twoFactorEnabled!: boolean;
+
+  // 2FA: último timeStep TOTP aceito — rejeita replay do mesmo código na janela
+  @Column({ type: 'int', nullable: true })
+  @Exclude()
+  twoFactorLastTimeStep?: number | null;
+
+  // 2FA: hash do twoFactorToken pendente — uso único na 2ª etapa do login
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Exclude()
+  twoFactorTokenHash?: string | null;
 }

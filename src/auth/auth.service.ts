@@ -260,9 +260,14 @@ export class AuthService {
     // 2FA habilitado: não cria sessão ainda — exige código TOTP em /auth/2fa/login
     if (user.twoFactorEnabled) {
       const twoFactorToken = this.jwtService.sign(
-        { sub: user.uid, type: '2fa' },
+        { sub: user.uid, type: '2fa', jti: randomUUID() },
         { expiresIn: '5m' },
       );
+      // Uso único: só o último twoFactorToken emitido vale na 2ª etapa
+      user.twoFactorTokenHash = createHash('sha256')
+        .update(twoFactorToken)
+        .digest('hex');
+      await this.userRepository.save(user);
       return { requires2fa: true, twoFactorToken };
     }
 
@@ -294,11 +299,23 @@ export class AuthService {
       throw new UnauthorizedException('Acesso negado');
     }
 
+    // Uso único: token precisa ser o último emitido e ainda não consumido
+    const tokenHash = createHash('sha256').update(twoFactorToken).digest('hex');
+    if (!user.twoFactorTokenHash || user.twoFactorTokenHash !== tokenHash) {
+      throw new UnauthorizedException('Token inválido');
+    }
+
     const verifyResult = otplib.verifySync({ token: code, secret: user.twoFactorSecret });
     if (!verifyResult.valid) {
       throw new UnauthorizedException('Código 2FA inválido');
     }
+    // cast: o tipo união TOTP|HOTP esconde epoch, mas o verify TOTP sempre retorna
+    this.assertTotpNotReplayed(
+      user,
+      Math.floor((verifyResult as { epoch: number }).epoch / 30),
+    );
 
+    user.twoFactorTokenHash = null; // consumido
     return this.issueTokens(user, ip, `Login via email + 2FA: ${user.email}`);
   }
 
@@ -393,6 +410,19 @@ export class AuthService {
     await this.userRepository.save(user);
   }
 
+  /** Rejeita reuso do mesmo código TOTP (timeStep já aceito) — replay guard */
+  private assertTotpNotReplayed(user: User, timeStep: number) {
+    if (
+      user.twoFactorLastTimeStep != null &&
+      timeStep <= user.twoFactorLastTimeStep
+    ) {
+      throw new UnauthorizedException(
+        'Código 2FA já utilizado — aguarde o próximo código',
+      );
+    }
+    user.twoFactorLastTimeStep = timeStep;
+  }
+
   /** Gera secret TOTP + QR — só ativa de fato no enable (após confirmar código) */
   async setup2fa(userId: string) {
     const user = await this.userRepository.findOne({ where: { uid: userId } });
@@ -426,6 +456,11 @@ export class AuthService {
     if (!verifyResult.valid) {
       throw new UnauthorizedException('Código 2FA inválido');
     }
+    // cast: o tipo união TOTP|HOTP esconde epoch, mas o verify TOTP sempre retorna
+    this.assertTotpNotReplayed(
+      user,
+      Math.floor((verifyResult as { epoch: number }).epoch / 30),
+    );
 
     user.twoFactorEnabled = true;
     await this.userRepository.save(user);
@@ -453,6 +488,11 @@ export class AuthService {
     if (!verifyResult.valid) {
       throw new UnauthorizedException('Código 2FA inválido');
     }
+    // cast: o tipo união TOTP|HOTP esconde epoch, mas o verify TOTP sempre retorna
+    this.assertTotpNotReplayed(
+      user,
+      Math.floor((verifyResult as { epoch: number }).epoch / 30),
+    );
 
     user.twoFactorEnabled = false;
     user.twoFactorSecret = null;
