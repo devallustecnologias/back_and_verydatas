@@ -188,9 +188,9 @@ export class AuthService {
     }
 
     if (!passwordMatch) {
-      // §15 — Lockout: incrementa contador; ao atingir 20, bloqueia 5 minutos
+      // §15 — Lockout: incrementa contador; ao atingir 3, bloqueia 5 minutos
       user.failedLoginAttempts = (user.failedLoginAttempts ?? 0) + 1;
-      if (user.failedLoginAttempts >= 20) {
+      if (user.failedLoginAttempts >= 3) {
         const lockedUntil = new Date();
         lockedUntil.setMinutes(lockedUntil.getMinutes() + 5);
         user.lockedUntil = lockedUntil;

@@ -15,7 +15,7 @@ export class CreateUserDto {
   @ApiProperty({
     required: false,
     example: '123456',
-    description: 'Se omitida, o sistema gera uma senha e envia por e-mail',
+    description: 'Senha de acesso definida pelo admin/master ao criar o usuário',
   })
   password?: string;
 
