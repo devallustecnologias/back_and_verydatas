@@ -514,12 +514,7 @@ async findUserCreditDetails(
 async create(
   dto: CreateCompanyDto
 ): Promise<Company> {
-  // §1 ANEPS obrigatório para novas contratações
-  if (!dto.aneps || dto.aneps.trim() === '') {
-    throw new BadRequestException(
-      'ANEPS obrigatório para contratar',
-    );
-  }
+  // ANEPS deixou de ser obrigatório (campo segue opcional)
 
   const exists =
     await this.companyRepo.findOne({
