@@ -10,6 +10,7 @@ import { Menu } from 'src/entities/menu/menu.entity';
 import { Plan } from 'src/entities/plan/plan.entity';
 import { Company } from 'src/company/company.entity';
 import { CompanyAccessControl } from 'src/entities/access-control/company-access-control.entity';
+import { User } from 'src/entities/user/user.entity';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 
@@ -45,6 +46,9 @@ export class MenuService implements OnModuleInit {
 
     @InjectRepository(CompanyAccessControl)
     private readonly accessControlRepo: Repository<CompanyAccessControl>,
+
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   // ----------------------------------------------------------------
@@ -214,6 +218,7 @@ export class MenuService implements OnModuleInit {
   async getMyMenus(currentUser: {
     role: string;
     companyId: number | null;
+    userId?: string;
   }): Promise<{
     restricted: boolean;
     allowedKeys: string[];
@@ -222,6 +227,18 @@ export class MenuService implements OnModuleInit {
     // Passo 1: Sempre incluir allKeys (todos os menus não deletados)
     const allMenus = await this.menuRepo.find({ where: { deletedAt: IsNull() } });
     const allKeys = allMenus.map((m) => m.key);
+
+    // Menus extras concedidos individualmente ao usuário (além do plano/empresa)
+    let extraKeys: string[] = [];
+    if (currentUser.userId) {
+      const u = await this.userRepo.findOne({
+        where: { uid: currentUser.userId },
+        relations: ['extraMenus'],
+      });
+      extraKeys = u?.extraMenus?.map((m) => m.key) ?? [];
+    }
+    const withExtra = (keys: string[]) =>
+      Array.from(new Set([...keys, ...extraKeys]));
 
     // Passo 2: Se master, sem restrição
     if (currentUser.role === 'master') {
@@ -296,28 +313,28 @@ export class MenuService implements OnModuleInit {
     }
 
     if (planActive && !treeActive) {
-      // Só plano ativo
+      // Só plano ativo (+ menus extras do usuário)
       return {
         restricted: true,
-        allowedKeys: planKeys,
+        allowedKeys: withExtra(planKeys),
         allKeys,
       };
     }
 
     if (!planActive && treeActive) {
-      // Só árvore ativa
+      // Só árvore ativa (+ menus extras do usuário)
       return {
         restricted: true,
-        allowedKeys: treeKeys,
+        allowedKeys: withExtra(treeKeys),
         allKeys,
       };
     }
 
-    // Ambas ativas → interseção
+    // Ambas ativas → interseção (+ menus extras do usuário)
     const intersection = planKeys.filter((key) => treeKeys.includes(key));
     return {
       restricted: true,
-      allowedKeys: intersection,
+      allowedKeys: withExtra(intersection),
       allKeys,
     };
   }

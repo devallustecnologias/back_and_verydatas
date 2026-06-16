@@ -63,4 +63,12 @@ export class CreateUserDto {
   @IsInt()
   @IsOptional()
   cargoId?: number;
+
+  @ApiProperty({
+    required: false,
+    example: [3, 8],
+    description: 'IDs de menus extras concedidos individualmente ao usuário',
+  })
+  @IsOptional()
+  extraMenuIds?: number[];
 }

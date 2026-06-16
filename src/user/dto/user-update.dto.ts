@@ -61,4 +61,8 @@ export class UpdateUserDto {
   @IsInt()
   @IsOptional()
   cargoId?: number;
+
+  @ApiProperty({ required: false, example: [3, 8] })
+  @IsOptional()
+  extraMenuIds?: number[];
 }

@@ -18,6 +18,7 @@ import { Plan } from 'src/entities/plan/plan.entity';
 import { Permission } from 'src/entities/permission/permission.entity';
 import { Department } from 'src/entities/department/department.entity';
 import { Cargo } from 'src/entities/cargo/cargo.entity';
+import { Menu } from 'src/entities/menu/menu.entity';
 import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
@@ -41,11 +42,23 @@ export class UserService {
         @InjectRepository(Cargo)
         private readonly cargoRepo: Repository<Cargo>,
 
+        @InjectRepository(Menu)
+        private readonly menuRepo: Repository<Menu>,
+
         private readonly mailService: MailService,
     ) { }
 
     private async hashPassword(password: string) {
         return bcrypt.hash(password, 10);
+    }
+
+    private async resolveExtraMenus(extraMenuIds?: number[]): Promise<Menu[]> {
+        if (!extraMenuIds || extraMenuIds.length === 0) return [];
+        const menus = await this.menuRepo.find({ where: { id: In(extraMenuIds) } });
+        if (menus.length !== extraMenuIds.length) {
+            throw new BadRequestException('Um ou mais menus extras são inválidos');
+        }
+        return menus;
     }
 
     private generateStrongPassword(): string {
@@ -226,6 +239,8 @@ export class UserService {
 
         const { department, cargo } = await this.resolveDepartmentAndCargo(dto, company!.id);
 
+        const extraMenus = await this.resolveExtraMenus(dto.extraMenuIds);
+
         const user = this.userRepo.create({
             uid: uuidv4(),
             username: dto.username,
@@ -242,6 +257,7 @@ export class UserService {
             department: department ?? null,
             cargo: cargo ?? null,
             mustChangePassword: false,
+            extraMenus,
         });
 
         const saved = await this.userRepo.save(user);
@@ -310,6 +326,8 @@ export class UserService {
         }
         const { department, cargo } = await this.resolveDepartmentAndCargo(dto, company!.id);
 
+        const extraMenus = await this.resolveExtraMenus(dto.extraMenuIds);
+
         const user = this.userRepo.create({
             uid: uuidv4(),
             username: dto.username,
@@ -323,6 +341,7 @@ export class UserService {
             department: department ?? null,
             cargo: cargo ?? null,
             mustChangePassword: false,
+            extraMenus,
         });
 
         const saved = await this.userRepo.save(user);
@@ -339,7 +358,7 @@ export class UserService {
 
         const user = await this.userRepo.findOne({
             where: { uid },
-            relations: ['company', 'plan'],
+            relations: ['company', 'plan', 'extraMenus'],
         });
 
         if (!user) {
@@ -475,6 +494,10 @@ export class UserService {
 
         if (dto.password) {
             user.password = await bcrypt.hash(dto.password, 10);
+        }
+
+        if (dto.extraMenuIds !== undefined) {
+            user.extraMenus = await this.resolveExtraMenus(dto.extraMenuIds);
         }
 
         return this.userRepo.save(user);

@@ -9,6 +9,8 @@ import {
   DeleteDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryColumn,
 } from 'typeorm';
@@ -16,6 +18,7 @@ import {
 import { Plan } from '../plan/plan.entity';
 import { Department } from '../department/department.entity';
 import { Cargo } from '../cargo/cargo.entity';
+import { Menu } from '../menu/menu.entity';
 
 export enum UserRole {
   MASTER = 'master',
@@ -111,6 +114,11 @@ export class User {
   @ManyToOne(() => Cargo, { nullable: true })
   @JoinColumn({ name: 'cargo_id' })
   cargo?: Cargo | null;
+
+  // Menus extras concedidos individualmente ao usuário (além do plano/depto)
+  @ManyToMany(() => Menu)
+  @JoinTable({ name: 'user_extra_menus' })
+  extraMenus?: Menu[];
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   deletedAt?: Date;
