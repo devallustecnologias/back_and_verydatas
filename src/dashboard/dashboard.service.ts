@@ -67,12 +67,25 @@ export class DashboardService {
 
     const creditosConsumidos = Number(creditosConsumidosRaw?.total ?? 0);
 
+    // saldoUtilizado: total de créditos que já saíram das carteiras COMPANY
+    // (distribuídos a usuários + consumo + estornos out) = SUM DEBIT em wallets COMPANY.
+    const saldoUtilizadoRaw = await this.ledgerRepo
+      .createQueryBuilder('ledger')
+      .innerJoin('ledger.wallet', 'wallet')
+      .select('COALESCE(SUM(ledger.amount), 0)', 'total')
+      .where('wallet.type = :type', { type: 'COMPANY' })
+      .andWhere('ledger.type = :ledgerType', { ledgerType: LedgerType.DEBIT })
+      .getRawOne<{ total: string }>();
+
+    const saldoUtilizado = Number(saldoUtilizadoRaw?.total ?? 0);
+
     return {
       totalEmpresas,
       empresasAtivas,
       empresasBloqueadas,
       usuariosAtivos,
       creditosVendidos,
+      saldoUtilizado,       // total de débitos nas carteiras COMPANY
       creditosConsumidos,   // 0 até Bloco 3
       receitaMensal: null,  // sem modelo de invoice/pagamento ainda
     };
@@ -97,6 +110,9 @@ export class DashboardService {
     });
 
     let saldoCreditos = 0;
+    // saldoUtilizado: total de créditos que já saíram da carteira da empresa
+    // (distribuídos a usuários + consumo + estornos out) = SUM DEBIT da wallet COMPANY.
+    let saldoUtilizado = 0;
     if (companyWallet) {
       const creditRaw = await this.ledgerRepo
         .createQueryBuilder('ledger')
@@ -112,7 +128,8 @@ export class DashboardService {
         .andWhere('ledger.type = :type', { type: LedgerType.DEBIT })
         .getRawOne<{ total: string }>();
 
-      saldoCreditos = Number(creditRaw?.total ?? 0) - Number(debitRaw?.total ?? 0);
+      saldoUtilizado = Number(debitRaw?.total ?? 0);
+      saldoCreditos = Number(creditRaw?.total ?? 0) - saldoUtilizado;
     }
 
     // ── IDs de wallets da empresa + seus usuários ──
@@ -220,6 +237,7 @@ export class DashboardService {
 
     return {
       saldoCreditos,
+      saldoUtilizado,   // total de débitos (distribuído + consumido) da carteira
       consumoDiario,    // 0 até Bloco 3
       consumoMensal,    // 0 até Bloco 3
       usuariosAtivos,
