@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'src/entities/user/user.entity';
@@ -27,5 +27,26 @@ export class MailingController {
   @ApiOperation({ summary: 'Testa autenticação no Consignado Rápido (sem extrair leads)' })
   ping() {
     return this.cr.ping();
+  }
+
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
+  @Get('consulta/cpf/:cpf')
+  @ApiOperation({ summary: 'Consulta CPF INSS (Consignado Rápido /api/cpf)' })
+  consultaCpf(@Param('cpf') cpf: string) {
+    return this.cr.consultaCpf(String(cpf).replace(/\D/g, ''));
+  }
+
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
+  @Get('consulta/offline/:nb')
+  @ApiOperation({ summary: 'Consulta Offline por nº de benefício (Consignado Rápido /api/offline)' })
+  consultaOffline(@Param('nb') nb: string) {
+    return this.cr.consultaOffline(String(nb).replace(/\D/g, ''));
+  }
+
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
+  @Post('consulta/lote')
+  @ApiOperation({ summary: 'Consulta vários CPFs (cpf → opcionalmente offline completo)' })
+  consultaLote(@Body() dto: { cpfs: string[]; full?: boolean }) {
+    return this.mailingService.consultarLote(dto?.cpfs ?? [], dto?.full ?? false);
   }
 }

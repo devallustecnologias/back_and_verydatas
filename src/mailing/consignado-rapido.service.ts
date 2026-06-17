@@ -122,4 +122,43 @@ export class ConsignadoRapidoService {
     if (data && (data.cpf || data.nome || data.nb)) return [data];
     return [];
   }
+
+  /** GET autenticado com TOKEN header + reauth automático em 403. */
+  private async getWithToken(
+    path: string,
+  ): Promise<{ status: number; data: any }> {
+    let token = await this.getToken();
+    const doCall = (tk: string) =>
+      fetch(`${this.baseUrl}${path}`, { method: 'GET', headers: { TOKEN: tk } });
+
+    let res = await doCall(token);
+    if (res.status === 403) {
+      token = await this.getToken(true);
+      res = await doCall(token);
+    }
+    const data = await res.json().catch(() => null);
+    return { status: res.status, data };
+  }
+
+  /** Consulta CPF INSS — GET /api/cpf?cpf= (Nome, beneficio, especie, Margem35...). */
+  async consultaCpf(cpf: string): Promise<any> {
+    const { status, data } = await this.getWithToken(
+      `/api/cpf?cpf=${encodeURIComponent(cpf)}`,
+    );
+    if (status >= 500) {
+      throw new BadGatewayException(`Consulta CPF falhou (HTTP ${status})`);
+    }
+    return data;
+  }
+
+  /** Consulta Offline — GET /api/offline?nb= (benefício completo + margem + bancos). */
+  async consultaOffline(nb: string): Promise<any> {
+    const { status, data } = await this.getWithToken(
+      `/api/offline?nb=${encodeURIComponent(nb)}`,
+    );
+    if (status >= 500) {
+      throw new BadGatewayException(`Consulta offline falhou (HTTP ${status})`);
+    }
+    return data;
+  }
 }

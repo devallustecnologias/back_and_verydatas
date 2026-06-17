@@ -91,6 +91,32 @@ export class MailingService {
     };
   }
 
+  /**
+   * Consulta vários CPFs no Consignado Rápido. Para cada CPF chama /api/cpf;
+   * se `full` e houver benefício, busca também o /api/offline (dado completo + margem).
+   */
+  async consultarLote(cpfs: string[], full = false) {
+    const out: any[] = [];
+    for (const raw of cpfs ?? []) {
+      const cpf = String(raw).replace(/\D/g, '').padStart(11, '0');
+      try {
+        const resumo = await this.cr.consultaCpf(cpf);
+        const nb = resumo?.req?.[0]?.beneficio ?? resumo?.beneficio ?? null;
+        if (full && nb) {
+          const offline = await this.cr.consultaOffline(
+            String(nb).replace(/\D/g, ''),
+          );
+          out.push({ cpf, beneficio: nb, resumo, offline });
+        } else {
+          out.push({ cpf, beneficio: nb, resumo });
+        }
+      } catch (e: any) {
+        out.push({ cpf, erro: e?.message ?? 'erro' });
+      }
+    }
+    return { total: out.length, resultados: out };
+  }
+
   private async commitDebit(currentUser: CurrentUser, cost: number, nome?: string) {
     await this.dataSource.transaction(async (manager) => {
       const walletRepo = manager.getRepository(Wallet);
