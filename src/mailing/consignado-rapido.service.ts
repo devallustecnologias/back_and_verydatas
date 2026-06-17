@@ -24,7 +24,9 @@ export class ConsignadoRapidoService {
 
   isConfigured(): boolean {
     return Boolean(
-      process.env.CONSIGNADO_RAPIDO_USER && process.env.CONSIGNADO_RAPIDO_PASS,
+      process.env.CONSIGNADO_RAPIDO_TOKEN ||
+        (process.env.CONSIGNADO_RAPIDO_USER &&
+          process.env.CONSIGNADO_RAPIDO_PASS),
     );
   }
 
@@ -91,9 +93,14 @@ export class ConsignadoRapidoService {
   }
 
   private async getToken(force = false): Promise<string> {
+    // Token vitalício configurado → usa direto, sem autenticar (mais estável).
+    const staticToken = process.env.CONSIGNADO_RAPIDO_TOKEN;
+    if (staticToken && staticToken.trim()) {
+      return staticToken.trim();
+    }
     if (!this.isConfigured()) {
       throw new BadGatewayException(
-        'Credenciais Consignado Rápido não configuradas (CONSIGNADO_RAPIDO_USER/PASS)',
+        'Credenciais Consignado Rápido não configuradas (CONSIGNADO_RAPIDO_TOKEN ou USER/PASS)',
       );
     }
     if (force || !this.token || Date.now() >= this.tokenExpiresAt) {
