@@ -44,6 +44,13 @@ export class MailingController {
   }
 
   @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
+  @Get('consulta/beneficios/:cpf')
+  @ApiOperation({ summary: 'Consulta INSS completa por CPF (margem + contratos + bancos + endereço)' })
+  consultaBeneficios(@Param('cpf') cpf: string) {
+    return this.cr.consultaBeneficios(String(cpf).replace(/\D/g, '').padStart(11, '0'));
+  }
+
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
   @Post('consulta/lote')
   @ApiOperation({ summary: 'Consulta vários CPFs (cpf → opcionalmente offline completo)' })
   consultaLote(@Body() dto: { cpfs: string[]; full?: boolean }) {

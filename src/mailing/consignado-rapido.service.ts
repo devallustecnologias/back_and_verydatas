@@ -28,8 +28,38 @@ export class ConsignadoRapidoService {
     );
   }
 
+  private sleep(ms: number) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  /**
+   * fetch com retry pro Cloudflare do Consignado Rápido — às vezes ele barra o
+   * IP com uma página HTML (403) de forma intermitente. Retenta com folga e
+   * devolve {status, text}.
+   */
+  private async cfFetch(
+    url: string,
+    init: RequestInit,
+    tries = 5,
+  ): Promise<{ status: number; text: string }> {
+    let last = { status: 0, text: '' };
+    for (let i = 0; i < tries; i++) {
+      const res = await fetch(url, init);
+      const text = await res.text();
+      last = { status: res.status, text };
+      const isCloudflare =
+        res.status === 403 && text.slice(0, 120).includes('<!DOCTYPE');
+      if (isCloudflare) {
+        await this.sleep(1500);
+        continue;
+      }
+      return last;
+    }
+    return last;
+  }
+
   private async authenticate(): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/api/auth`, {
+    const { status, text } = await this.cfFetch(`${this.baseUrl}/api/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -38,10 +68,15 @@ export class ConsignadoRapidoService {
       }),
     });
 
-    const data: any = await res.json().catch(() => ({}));
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // resposta não-JSON (ex.: HTML do Cloudflare)
+    }
 
-    if (!res.ok || data?.status !== 'success' || !data?.token) {
-      const msg = data?.message || data?.msg || `HTTP ${res.status}`;
+    if (status !== 200 || data?.status !== 'success' || !data?.token) {
+      const msg = data?.message || data?.msg || `HTTP ${status}`;
       this.logger.warn(`Auth Consignado Rápido falhou: ${msg}`);
       throw new BadGatewayException(
         `Falha na autenticação Consignado Rápido: ${msg}`,
@@ -123,21 +158,49 @@ export class ConsignadoRapidoService {
     return [];
   }
 
-  /** GET autenticado com TOKEN header + reauth automático em 403. */
+  /** GET autenticado com TOKEN header + retry Cloudflare + reauth em token inválido. */
   private async getWithToken(
     path: string,
   ): Promise<{ status: number; data: any }> {
     let token = await this.getToken();
-    const doCall = (tk: string) =>
-      fetch(`${this.baseUrl}${path}`, { method: 'GET', headers: { TOKEN: tk } });
+    let { status, text } = await this.cfFetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: { TOKEN: token },
+    });
 
-    let res = await doCall(token);
-    if (res.status === 403) {
+    // token inválido/expirado → reautentica 1x e tenta de novo
+    if (status === 403 && text.includes('invalid token')) {
       token = await this.getToken(true);
-      res = await doCall(token);
+      ({ status, text } = await this.cfFetch(`${this.baseUrl}${path}`, {
+        method: 'GET',
+        headers: { TOKEN: token },
+      }));
     }
-    const data = await res.json().catch(() => null);
-    return { status: res.status, data };
+
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // não-JSON
+    }
+    return { status, data };
+  }
+
+  /**
+   * Consulta Benefícios por CPF — GET /api/beneficios?cpf=
+   * Retorno mais completo: dados pessoais + benefício + margem + TODOS os
+   * contratos de empréstimo + cartões RMC/RCC + endereço + telefone.
+   */
+  async consultaBeneficios(cpf: string): Promise<any> {
+    const { status, data } = await this.getWithToken(
+      `/api/beneficios?cpf=${encodeURIComponent(cpf)}`,
+    );
+    if (status >= 500) {
+      throw new BadGatewayException(
+        `Consulta de benefícios falhou (HTTP ${status})`,
+      );
+    }
+    return data;
   }
 
   /** Consulta CPF INSS — GET /api/cpf?cpf= (Nome, beneficio, especie, Margem35...). */
