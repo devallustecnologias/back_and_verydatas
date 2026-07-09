@@ -44,6 +44,18 @@ export class MailingController {
   }
 
   @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
+  @Get('consulta/extracao-online/:nb')
+  @ApiOperation({
+    summary: 'Extração de Consignação Online por nº de benefício (cobra 1 crédito)',
+  })
+  consultaExtracaoOnline(@Param('nb') nb: string, @Req() req: any) {
+    return this.mailingService.consultarExtracaoOnline(
+      String(nb).replace(/\D/g, ''),
+      req.user,
+    );
+  }
+
+  @Roles(UserRole.MASTER, UserRole.EMPRESA, UserRole.OPERADOR)
   @Get('consulta/beneficios/:cpf')
   @ApiOperation({ summary: 'Consulta INSS completa por CPF (margem + contratos + bancos + endereço)' })
   consultaBeneficios(@Param('cpf') cpf: string) {

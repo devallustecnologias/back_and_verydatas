@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Wallet } from 'src/ledger/walled.entity';
 import { Ledger, LedgerType, LedgerOrigin } from 'src/ledger/ledger.entity';
 import { ConsignadoRapidoService } from './consignado-rapido.service';
+import { ExtracaoOnlineService } from './extracao-online.service';
 import { GerarMailingDto } from './dto/gerar-mailing.dto';
 
 type CurrentUser = {
@@ -20,10 +21,16 @@ export class MailingService {
     @InjectRepository(Wallet)
     private readonly walletRepo: Repository<Wallet>,
     private readonly dataSource: DataSource,
+    private readonly extracaoOnline: ExtracaoOnlineService,
   ) {}
 
   private creditCost(): number {
     const n = Number(process.env.MAILING_CREDIT_COST ?? 1);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+  }
+
+  private extracaoOnlineCreditCost(): number {
+    const n = Number(process.env.EXTRACAO_ONLINE_CREDIT_COST ?? 1);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
   }
 
@@ -115,6 +122,32 @@ export class MailingService {
       }
     }
     return { total: out.length, resultados: out };
+  }
+
+  async consultarExtracaoOnline(nb: string, currentUser: CurrentUser) {
+    const cost = this.extracaoOnlineCreditCost();
+    const cobravel = !!currentUser.companyId;
+
+    if (cobravel) {
+      const info = await this.companyBalance(currentUser.companyId!);
+      if (!info) {
+        throw new BadRequestException('Empresa sem carteira de créditos');
+      }
+      if (info.balance < cost) {
+        throw new BadRequestException(
+          'Saldo de créditos insuficiente para a extração online',
+        );
+      }
+    }
+
+    // Chama a API online ANTES de debitar — se falhar, não cobra.
+    const data = await this.extracaoOnline.consultarNb(nb);
+
+    if (cobravel) {
+      await this.commitDebit(currentUser, cost, 'Extração de Consignação Online');
+    }
+
+    return { success: true, creditCost: cobravel ? cost : 0, data };
   }
 
   private async commitDebit(currentUser: CurrentUser, cost: number, nome?: string) {
