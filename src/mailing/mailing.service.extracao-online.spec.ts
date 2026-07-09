@@ -93,4 +93,24 @@ describe('MailingService.consultarExtracaoOnline', () => {
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(managerLedgerRepo.save).toHaveBeenCalledTimes(1);
   });
+
+  it('empresa user with sufficient balance but upstream fails should not debit credit', async () => {
+    const { service, extracaoOnline, dataSource } = buildService(5);
+
+    // Override the consultarNb mock to reject
+    extracaoOnline.consultarNb.mockRejectedValue(
+      new Error('upstream down'),
+    );
+
+    await expect(
+      service.consultarExtracaoOnline('2148232830', {
+        companyId: 7,
+        userId: 'u1',
+        username: 'x',
+      }),
+    ).rejects.toThrow('upstream down');
+
+    expect(extracaoOnline.consultarNb).toHaveBeenCalledWith('2148232830');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
 });
