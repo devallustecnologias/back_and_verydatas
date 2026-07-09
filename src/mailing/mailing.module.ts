@@ -6,10 +6,17 @@ import { MailingController } from './mailing.controller';
 import { MailingService } from './mailing.service';
 import { ConsignadoRapidoService } from './consignado-rapido.service';
 import { ExtracaoOnlineService } from './extracao-online.service';
+import { NvCheckService } from './nvcheck.service';
+import { MailingGeneration } from './mailing-generation.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Wallet, Ledger])],
+  imports: [TypeOrmModule.forFeature([Wallet, Ledger, MailingGeneration])],
   controllers: [MailingController],
-  providers: [MailingService, ConsignadoRapidoService, ExtracaoOnlineService],
+  providers: [
+    MailingService,
+    ConsignadoRapidoService,
+    ExtracaoOnlineService,
+    NvCheckService,
+  ],
 })
 export class MailingModule {}

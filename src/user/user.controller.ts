@@ -63,11 +63,11 @@ export class UserController {
         return this.userService.createMaster(dto);
     }
 
-    @Roles(UserRole.MASTER)
+    @Roles(UserRole.MASTER, UserRole.EMPRESA)
     @Post('admin')
     @ApiOperation({ summary: 'Criar admin da empresa' })
-    createAdmin(@Body() dto: CreateUserDto) {
-        return this.userService.createAdmin(dto);
+    createAdmin(@Body() dto: CreateUserDto, @User() user?: any) {
+        return this.userService.createAdmin(dto, user);
     }
 
     @Roles(UserRole.MASTER, UserRole.EMPRESA)

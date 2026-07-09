@@ -12,12 +12,12 @@ import { User } from 'src/entities/user/user.entity';
 import { WalletModule } from 'src/wallet/wallet.module';
 
 @Module({
-      imports: [TypeOrmModule.forFeature([Company, Plan, Ledger, Wallet, User]), WalletModule],
+    imports: [TypeOrmModule.forFeature([Company, Plan, Ledger, Wallet, User]), WalletModule],
     controllers: [
         CompanyController,
         BrandingController,
     ],
-    providers: [
-        CompanyService,],
+    providers: [CompanyService],
+    exports: [CompanyService],
 })
 export class CompanyModule { }

@@ -10,9 +10,10 @@ import { Department } from 'src/entities/department/department.entity';
 import { Cargo } from 'src/entities/cargo/cargo.entity';
 import { Menu } from 'src/entities/menu/menu.entity';
 import { MailModule } from 'src/mail/mail.module';
+import { CompanyModule } from 'src/company/company.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Plan, Permission, Company, Department, Cargo, Menu]), MailModule],
+    imports: [TypeOrmModule.forFeature([User, Plan, Permission, Company, Department, Cargo, Menu]), MailModule, CompanyModule],
     controllers: [
         UserController,],
     providers: [

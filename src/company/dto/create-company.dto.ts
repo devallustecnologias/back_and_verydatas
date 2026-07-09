@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class CreateCompanyDto {
   @ApiProperty({ example: 'Minha Empresa LTDA' })
@@ -159,4 +159,13 @@ export class CreateCompanyDto {
   @IsString()
   @ApiProperty({ example: '#34A853', required: false })
   brandSecondaryColor?: string;
+
+  @IsOptional()
+  @IsInt()
+  @ApiProperty({
+    example: 1,
+    required: false,
+    description: 'ID da Empresa Master (pai). Informado quando se cria uma Filial. Ignorado se o criador for master.',
+  })
+  parentCompanyId?: number;
 }

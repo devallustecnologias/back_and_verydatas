@@ -40,9 +40,12 @@ describe('MailingService.consultarExtracaoOnline', () => {
       }),
     } as any;
 
+    const genRepo = {} as any;
+
     const service = new MailingService(
       cr,
       walletRepo,
+      genRepo,
       dataSource,
       extracaoOnline as any,
     );

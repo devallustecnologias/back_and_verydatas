@@ -109,6 +109,13 @@ export class Company {
   @JoinColumn({ name: 'plan_id' })
   plan?: Plan | null;
 
+  @ManyToOne(() => Company, (c) => c.filiais, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'parent_company_id' })
+  parentCompany?: Company | null;
+
+  @OneToMany(() => Company, (c) => c.parentCompany)
+  filiais?: Company[];
+
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   deletedAt?: Date;
 }

@@ -3,11 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company, CompanyStatus } from './company.entity';
-import { ILike, Repository } from 'typeorm';
+import { ILike, In, Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { Plan } from 'src/entities/plan/plan.entity';
@@ -512,10 +511,58 @@ async findUserCreditDetails(
   }
 
 async create(
-  dto: CreateCompanyDto
+  dto: CreateCompanyDto,
+  currentUser: { role?: string; companyId?: number },
 ): Promise<Company> {
   // ANEPS deixou de ser obrigatório (campo segue opcional)
 
+  // --- Hierarquia: resolver parentId conforme role do criador ---
+  let parentId: number | null = null;
+
+  if (currentUser.role === 'master') {
+    // Empresa Master — ignora parentCompanyId do dto
+    parentId = null;
+  } else if (currentUser.role === 'empresa') {
+    // Verifica se a company do criador é Master (sem pai) ou Filial (tem pai)
+    const creatorCompany = await this.companyRepo.findOne({
+      where: { id: currentUser.companyId ?? -1 },
+      relations: ['parentCompany'],
+    });
+
+    if (!creatorCompany) {
+      throw new ForbiddenException('Empresa do usuário não encontrada');
+    }
+
+    if (creatorCompany.parentCompany != null) {
+      throw new ForbiddenException('Filial não pode criar filiais');
+    }
+
+    // É uma Empresa Master — o criador está vinculando uma filial à própria company
+    parentId = currentUser.companyId ?? null;
+  } else {
+    throw new ForbiddenException('Sem permissão para criar empresa');
+  }
+
+  // --- Validação de profundidade (parentId nunca pode ser uma Filial) ---
+  if (parentId !== null) {
+    const parentCompany = await this.companyRepo.findOne({
+      where: { id: parentId },
+      relations: ['parentCompany'],
+    });
+
+    if (parentCompany?.parentCompany != null) {
+      throw new BadRequestException('Profundidade máxima de filial atingida');
+    }
+  }
+
+  // Filial não informa domínio próprio (herda a marca da matriz). Gera um
+  // domínio sintético único só para satisfazer a constraint NOT NULL/UNIQUE.
+  if (parentId !== null && (!dto.domain || !dto.domain.trim())) {
+    const cnpjDigits = (dto.cnpj || '').replace(/\D/g, '');
+    dto.domain = `filial-${cnpjDigits || Date.now()}.interno`;
+  }
+
+  // --- Validação de domínio duplicado ---
   const exists =
     await this.companyRepo.findOne({
       where: {
@@ -527,6 +574,19 @@ async create(
     throw new BadRequestException(
       'Domínio já está em uso'
     );
+  }
+
+  // --- Validação de CNPJ duplicado (constraint UNIQUE no banco) ---
+  if (dto.cnpj) {
+    const cnpjDigits = String(dto.cnpj).replace(/\D/g, '');
+    const cnpjExists = await this.companyRepo.findOne({
+      where: { cnpj: cnpjDigits },
+    });
+    if (cnpjExists) {
+      throw new BadRequestException(
+        `CNPJ já cadastrado na empresa "${cnpjExists.name}". Use um CNPJ diferente.`,
+      );
+    }
   }
 
   // percorre todos os campos
@@ -579,22 +639,31 @@ async create(
       toTitleCase(value) as never;
   });
 
-  const plan = dto.planId
-    ? await this.planRepo.findOne({
-        where: { id: dto.planId },
-      })
-    : null;
+  let plan: Plan | null;
+  if (parentId !== null) {
+    // Filial SEMPRE herda o plano da matriz (ignora qualquer planId enviado).
+    const matriz = await this.companyRepo.findOne({
+      where: { id: parentId },
+      relations: ['plan'],
+    });
+    plan = matriz?.plan ?? null;
+  } else {
+    plan = dto.planId
+      ? await this.planRepo.findOne({ where: { id: dto.planId } })
+      : null;
+  }
 
   const company =
     this.companyRepo.create({
       ...dto,
       plan,
+      parentCompany: parentId !== null ? ({ id: parentId } as any) : null,
     });
 
   const saved = await this.companyRepo.save(company);
 
-  // §6 Provisionar créditos do plano na criação
-  if (plan && plan.creditLimit > 0) {
+  // §6 Provisionar créditos do plano na criação — APENAS Empresa Master (sem pai)
+  if (parentId === null && plan && plan.creditLimit > 0) {
     // Garantir que a wallet COMPANY exista
     let wallet = await this.walletRepo.findOne({
       where: { type: 'COMPANY', companyId: saved.id },
@@ -616,6 +685,108 @@ async create(
   }
 
   return saved;
+}
+
+/**
+ * Lista companies com escopo por role:
+ * - master: todas
+ * - empresa master (sem pai): própria + filiais
+ * - empresa filial ou operador: só a própria
+ */
+async listForUser(
+  currentUser: { role?: string; companyId?: number },
+  page = 1,
+  limit = 10,
+  search?: string,
+) {
+  if (currentUser.role === 'master') {
+    // Delegar ao findAll existente sem restrição
+    return this.findAll(page, limit, search, currentUser);
+  }
+
+  const scopeIds = await this.resolveScopeCompanyIds(currentUser);
+
+  const whereBase: any = search ? { name: ILike(`%${search}%`) } : {};
+
+  let where: any;
+  if (scopeIds === null) {
+    where = whereBase;
+  } else if (scopeIds.length === 1) {
+    where = { ...whereBase, id: scopeIds[0] };
+  } else {
+    where = { ...whereBase, id: In(scopeIds) };
+  }
+
+  const [data, total] = await this.companyRepo.findAndCount({
+    where,
+    relations: ['users', 'plan', 'parentCompany'],
+    order: { id: 'DESC' },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+/**
+ * Retorna as filiais diretas da company do usuário (parent_company_id = companyId).
+ * Master pode consultar filiais de qualquer empresa passando parentId explícito.
+ */
+async findFiliais(
+  currentUser: { role?: string; companyId?: number },
+  parentId?: number,
+): Promise<Company[]> {
+  const resolvedParentId =
+    currentUser.role === 'master' && parentId != null
+      ? parentId
+      : currentUser.companyId ?? -1;
+
+  return this.companyRepo.find({
+    where: { parentCompany: { id: resolvedParentId } },
+    relations: ['plan'],
+    order: { id: 'DESC' },
+  });
+}
+
+/**
+ * Resolve os IDs de company no escopo do usuário.
+ * Retorna null (= acesso total) para master; lista de IDs para os demais.
+ */
+async resolveScopeCompanyIds(
+  currentUser: { role?: string; companyId?: number },
+): Promise<number[] | null> {
+  if (currentUser.role === 'master') {
+    return null;
+  }
+
+  const companyId = currentUser.companyId ?? -1;
+
+  if (currentUser.role === 'empresa') {
+    const ownCompany = await this.companyRepo.findOne({
+      where: { id: companyId },
+      relations: ['parentCompany'],
+    });
+
+    if (!ownCompany) return [companyId];
+
+    if (ownCompany.parentCompany == null) {
+      // É Empresa Master — inclui própria + filiais
+      const filiais = await this.companyRepo.find({
+        where: { parentCompany: { id: companyId } },
+        select: ['id'],
+      });
+      return [companyId, ...filiais.map((f) => f.id)];
+    }
+  }
+
+  // Filial ou operador — só a própria
+  return [companyId];
 }
 
 async update(
@@ -691,6 +862,7 @@ async update(
     }
   }
 
+  let planChangedTo: Plan | null = null;
   if (dto.planId !== undefined) {
     const planExists =
       await this.planRepo.findOne({
@@ -703,13 +875,84 @@ async update(
       );
     }
 
+    // Detecta troca real de plano para provisionar créditos
+    const current = await this.companyRepo.findOne({
+      where: { id },
+      relations: ['plan'],
+    });
+    if (current?.plan?.id !== planExists.id) {
+      planChangedTo = planExists;
+    }
+
     company.plan = planExists;
   }
 
   Object.assign(company, dto);
 
-  return this.companyRepo.save(company);
+  const saved = await this.companyRepo.save(company);
+
+  // Ao trocar de plano, reflete os créditos do plano (top-up até o creditLimit)
+  if (planChangedTo) {
+    await this.ensurePlanCredits(saved.id, planChangedTo);
+  }
+
+  return saved;
 }
+
+/**
+ * Garante que a empresa tenha pelo menos o creditLimit do plano.
+ * Faz top-up (credita só a diferença) — não duplica créditos já existentes.
+ */
+private async ensurePlanCredits(companyId: number, plan: Plan): Promise<void> {
+  if (!plan || plan.creditLimit <= 0) return;
+
+  let wallet = await this.walletRepo.findOne({
+    where: { type: 'COMPANY', companyId },
+  });
+  if (!wallet) {
+    wallet = await this.walletRepo.save(
+      this.walletRepo.create({ type: 'COMPANY', companyId }),
+    );
+  }
+
+  const raw = await this.ledgerRepo
+    .createQueryBuilder('l')
+    .select(
+      "COALESCE(SUM(CASE WHEN l.type = 'CREDIT' THEN l.amount WHEN l.type = 'DEBIT' THEN -l.amount ELSE 0 END), 0)",
+      'bal',
+    )
+    .where('l.walletId = :wid', { wid: wallet.id })
+    .getRawOne<{ bal: string }>();
+  const balance = Number(raw?.bal ?? 0);
+
+  const diff = plan.creditLimit - balance;
+  if (diff > 0) {
+    await this.walletService.addCredits(
+      wallet.id,
+      diff,
+      `Créditos do plano ${plan.name}`,
+    );
+  }
+}
+
+  /**
+   * Valida que filialCompanyId é filial direta de masterCompanyId.
+   * Lança NotFoundException se a filial não existir, ForbiddenException se não for filial desta empresa.
+   */
+  async assertIsFilialOf(masterCompanyId: number, filialCompanyId: number): Promise<void> {
+    const filial = await this.companyRepo.findOne({
+      where: { id: filialCompanyId },
+      relations: ['parentCompany'],
+    });
+
+    if (!filial) {
+      throw new NotFoundException('Filial não encontrada');
+    }
+
+    if (filial.parentCompany?.id !== masterCompanyId) {
+      throw new ForbiddenException('Empresa alvo não é filial desta empresa');
+    }
+  }
 
   async remove(id: number): Promise<void> {
     const company = await this.findOne(id);

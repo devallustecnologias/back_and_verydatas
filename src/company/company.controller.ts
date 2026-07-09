@@ -178,7 +178,8 @@ export class CompanyController {
     @User() user?: any,
   ) {
     if (user && user.role !== 'master') {
-      if (user.companyId == null || Number(companyId) !== user.companyId) {
+      const scopeIds = await this.companyService.resolveScopeCompanyIds(user);
+      if (!scopeIds || !scopeIds.includes(Number(companyId))) {
         throw new ForbiddenException('Acesso negado a esta empresa');
       }
     }
@@ -212,7 +213,7 @@ export class CompanyController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista paginada de empresas',
+    description: 'Lista paginada de empresas (escopo por role)',
     schema: {
       example: {
         data: [
@@ -237,22 +238,43 @@ export class CompanyController {
     @Query('search') search?: string,
     @User() user?: any,
   ) {
-    return this.companyService.findAll(Number(page), Number(limit), search, user);
+    return this.companyService.listForUser(user, Number(page), Number(limit), search);
+  }
+
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
+  @Get('filiais')
+  @ApiOperation({ summary: 'Listar filiais da empresa do usuário autenticado' })
+  @ApiQuery({
+    name: 'parentId',
+    required: false,
+    type: Number,
+    description: 'ID da empresa pai (só master pode especificar)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de filiais vinculadas à Empresa Master do usuário',
+  })
+  async getFiliais(
+    @User() user?: any,
+    @Query('parentId') parentId?: string,
+  ) {
+    return this.companyService.findFiliais(user, parentId ? Number(parentId) : undefined);
   }
 
   @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Get(':id')
   @ApiOperation({ summary: 'Buscar empresa por ID' })
-  findOne(@Param('id') id: number, @User() user?: any): Promise<Company> {
+  async findOne(@Param('id') id: number, @User() user?: any): Promise<Company> {
     if (user && user.role !== 'master') {
-      if (user.companyId == null || Number(id) !== user.companyId) {
+      const scopeIds = await this.companyService.resolveScopeCompanyIds(user);
+      if (!scopeIds || !scopeIds.includes(Number(id))) {
         throw new ForbiddenException('Acesso negado a esta empresa');
       }
     }
     return this.companyService.findOne(Number(id));
   }
 
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.EMPRESA)
   @Post()
   @ApiOperation({ summary: 'Criar empresa' })
   @ApiResponse({
@@ -268,8 +290,8 @@ export class CompanyController {
       },
     },
   })
-  create(@Body() dto: CreateCompanyDto): Promise<Company> {
-    return this.companyService.create(dto);
+  create(@Body() dto: CreateCompanyDto, @User() user?: any): Promise<Company> {
+    return this.companyService.create(dto, user ?? {});
   }
 
   @Roles(UserRole.MASTER)
@@ -306,9 +328,10 @@ export class CompanyController {
     status: 200,
     description: 'Permissões da empresa',
   })
-  getCompanyPermissions(@Param('id') id: number, @User() user?: any) {
+  async getCompanyPermissions(@Param('id') id: number, @User() user?: any) {
     if (user && user.role !== 'master') {
-      if (user.companyId == null || Number(id) !== user.companyId) {
+      const scopeIds = await this.companyService.resolveScopeCompanyIds(user);
+      if (!scopeIds || !scopeIds.includes(Number(id))) {
         throw new ForbiddenException('Acesso negado a esta empresa');
       }
     }

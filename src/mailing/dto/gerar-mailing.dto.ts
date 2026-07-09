@@ -1,5 +1,35 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+
+/** Filtros aplicados APÓS a higienização (a API de mailing não os suporta). */
+export class PosFiltrosDto {
+  @ApiProperty({ required: false, description: 'ignorar | sim | nao' })
+  @IsOptional()
+  @IsString()
+  bloqueio?: string;
+
+  @ApiProperty({ required: false, description: 'ignorar | sim | nao' })
+  @IsOptional()
+  @IsString()
+  comTelefone?: string;
+
+  @ApiProperty({ required: false, description: 'ignorar | sim | nao' })
+  @IsOptional()
+  @IsString()
+  naoPerturbe?: string;
+
+  @ApiProperty({ required: false, description: 'ignorar | sim | nao' })
+  @IsOptional()
+  @IsString()
+  aniversariante?: string;
+}
 
 export class FiltroDto {
   @ApiProperty({ example: 'uf' })
@@ -36,4 +66,9 @@ export class GerarMailingDto {
   @IsOptional()
   @IsArray()
   filtros?: FiltroDto[];
+
+  @ApiProperty({ type: PosFiltrosDto, required: false })
+  @IsOptional()
+  @IsObject()
+  posFiltros?: PosFiltrosDto;
 }

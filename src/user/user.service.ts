@@ -20,6 +20,7 @@ import { Department } from 'src/entities/department/department.entity';
 import { Cargo } from 'src/entities/cargo/cargo.entity';
 import { Menu } from 'src/entities/menu/menu.entity';
 import { MailService } from 'src/mail/mail.service';
+import { CompanyService } from 'src/company/company.service';
 
 @Injectable()
 export class UserService {
@@ -46,6 +47,7 @@ export class UserService {
         private readonly menuRepo: Repository<Menu>,
 
         private readonly mailService: MailService,
+        private readonly companyService: CompanyService,
     ) { }
 
     private async hashPassword(password: string) {
@@ -140,6 +142,9 @@ export class UserService {
         if (!dto.password) {
             throw new BadRequestException('Master deve ter senha definida');
         }
+
+        await this.assertEmailAvailable(dto.email);
+
         const password = await this.hashPassword(
             dto.password,
         );
@@ -178,6 +183,7 @@ export class UserService {
 
     async createAdmin(
         dto: CreateUserDto,
+        currentUser?: { role?: string; companyId?: number },
     ): Promise<any> {
         if (!dto.companyId) {
             throw new BadRequestException(
@@ -185,17 +191,44 @@ export class UserService {
             );
         }
 
+        // Empresa Master pode criar admin de suas filiais; Filial não pode criar admins
+        if (currentUser?.role === 'empresa') {
+            const creatorCompany = await this.companyRepo.findOne({
+                where: { id: currentUser.companyId },
+                relations: ['parentCompany'],
+            });
+            if (creatorCompany?.parentCompany != null) {
+                throw new ForbiddenException('Filial não pode criar administradores');
+            }
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (!scopeIds || !scopeIds.includes(dto.companyId)) {
+                throw new ForbiddenException('Não é permitido criar administrador para empresa fora do escopo');
+            }
+        }
+
         const company = await this.findCompany(
             dto.companyId,
         );
 
-        if (company?.plan == null) {
+        // Filial herda o plano da empresa master (pai) para validações.
+        let planCompany = company;
+        const withParent = await this.companyRepo.findOne({
+            where: { id: dto.companyId },
+            relations: ['parentCompany'],
+        });
+        if (withParent?.parentCompany?.id) {
+            planCompany = await this.findCompany(withParent.parentCompany.id);
+        }
+
+        if (planCompany?.plan == null) {
             throw new BadRequestException(
                 'Empresa não possui plano definido',
             );
         }
 
-        await this.assertUserLimit(company!);
+        await this.assertUserLimit({ id: company!.id, plan: planCompany!.plan });
+
+        await this.assertEmailAvailable(dto.email);
 
         if (!dto.password) {
             throw new BadRequestException('Senha é obrigatória');
@@ -207,7 +240,7 @@ export class UserService {
         // se veio plano customizado
         if (dto.permissionIds?.length) {
             const companyPermissionIds =
-                company.plan?.permissions.map(
+                planCompany.plan?.permissions.map(
                     p => p.id,
                 ) ?? [];
 
@@ -229,7 +262,7 @@ export class UserService {
                 name: `custom-admin-${dto.username}`,
                 isSystem: false,
                 permissions:
-                    company.plan!.permissions.filter(p =>
+                    planCompany.plan!.permissions.filter(p =>
                         dto.permissionIds!.includes(p.id),
                     ),
             });
@@ -252,7 +285,7 @@ export class UserService {
             company: company ?? undefined,
             plan:
                 plan ??
-                company.plan ??
+                planCompany?.plan ??
                 null,
             department: department ?? null,
             cargo: cargo ?? null,
@@ -272,10 +305,21 @@ export class UserService {
             if (currentUser.companyId == null) {
                 throw new ForbiddenException('Conta sem empresa vinculada');
             }
-            if (dto.companyId != null && dto.companyId !== currentUser.companyId) {
-                throw new ForbiddenException('Não é permitido criar usuário em outra empresa');
+
+            // Resolve escopo: empresa master pode criar em própria ou filial
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            // scopeIds nunca é null para role 'empresa'
+
+            if (dto.companyId != null) {
+                // Validar que o companyId alvo está no escopo
+                if (!scopeIds || !scopeIds.includes(dto.companyId)) {
+                    throw new ForbiddenException('Não é permitido criar usuário em empresa fora do escopo');
+                }
+                // dto.companyId já está correto — mantém como está
+            } else {
+                // Se não informado, usar a própria empresa
+                dto.companyId = currentUser.companyId;
             }
-            dto.companyId = currentUser.companyId;
         }
 
         if (!dto.companyId) {
@@ -284,11 +328,24 @@ export class UserService {
 
         const company = await this.findCompany(dto.companyId);
 
-        if (company?.plan == null) {
+        // Filial não tem plano próprio: herda o plano da empresa master (pai) para
+        // validações de plano/permissões/limite ao criar operador.
+        let planCompany = company;
+        const withParent = await this.companyRepo.findOne({
+            where: { id: dto.companyId },
+            relations: ['parentCompany'],
+        });
+        if (withParent?.parentCompany?.id) {
+            planCompany = await this.findCompany(withParent.parentCompany.id);
+        }
+
+        if (planCompany?.plan == null) {
             throw new BadRequestException('Empresa não possui plano definido');
         }
 
-        await this.assertUserLimit(company!);
+        await this.assertUserLimit({ id: company!.id, plan: planCompany!.plan });
+
+        await this.assertEmailAvailable(dto.email);
 
         if (!dto.password) {
             throw new BadRequestException('Senha é obrigatória');
@@ -300,7 +357,7 @@ export class UserService {
         // se veio plano customizado
         if (dto.permissionIds?.length) {
             const companyPermissionIds =
-                company.plan?.permissions.map(p => p.id) ?? [];
+                planCompany.plan?.permissions.map(p => p.id) ?? [];
 
             // valida se permissões estão dentro da empresa
             const invalidPermissions = dto.permissionIds.filter(
@@ -317,7 +374,7 @@ export class UserService {
             plan = this.planRepo.create({
                 name: `custom-${dto.username}`,
                 isSystem: false, //aqu apenas para diferenciar dos planos do sistema definido pelo master para nao ser listado
-                permissions: company.plan!.permissions.filter((p) =>
+                permissions: planCompany.plan!.permissions.filter((p) =>
                     dto.permissionIds!.includes(p.id),
                 ),
             });
@@ -358,21 +415,51 @@ export class UserService {
 
         const user = await this.userRepo.findOne({
             where: { uid },
-            relations: ['company', 'plan', 'extraMenus'],
+            relations: ['company', 'company.parentCompany', 'plan', 'extraMenus'],
         });
 
         if (!user) {
             throw new NotFoundException('Usuário não encontrado');
         }
 
-        // Empresa só pode ver usuários da própria empresa
+        // Tenant check via escopo: empresa master pode ver usuários de suas filiais
         if (currentUser?.role === 'empresa') {
-            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            // scopeIds nunca é null para role 'empresa'
+            if (!scopeIds || user.company?.id == null || !scopeIds.includes(user.company.id)) {
                 throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
             }
         }
 
-        return user;
+        const parent = user.company?.parentCompany ?? null;
+        const parentCompanyId = parent?.id ?? null;
+        const isMaster = parentCompanyId === null;
+
+        return {
+            ...user,
+            company: user.company
+                ? {
+                      ...user.company,
+                      // filial herda a marca da matriz (logo/cor) quando não tem própria
+                      logoUrl: user.company.logoUrl ?? parent?.logoUrl ?? null,
+                      brandPrimaryColor:
+                          (user.company as any).brandPrimaryColor ??
+                          (parent as any)?.brandPrimaryColor ??
+                          null,
+                      parentCompanyId,
+                      isMaster,
+                      parentCompany: undefined, // não vazar objeto inteiro da master
+                  }
+                : user.company,
+        } as any;
+    }
+
+    /** Garante que o e-mail não está em uso por outro usuário (inclui soft-deletados, pois o índice unique também os abrange). */
+    private async assertEmailAvailable(email: string, exceptUid?: string): Promise<void> {
+        const existing = await this.userRepo.findOne({ where: { email }, withDeleted: true });
+        if (existing && existing.uid !== exceptUid) {
+            throw new BadRequestException('E-mail já cadastrado para outro usuário');
+        }
     }
 
     async update(uid: string, dto: UpdateUserDto, currentUser?: { role?: string; companyId?: number }): Promise<User> {
@@ -385,25 +472,29 @@ export class UserService {
             throw new NotFoundException('Usuário não encontrado');
         }
 
-        // Tenant check: não-master só pode editar usuários da própria empresa
-        if (currentUser && currentUser.role !== 'master') {
-            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+        // Tenant check via escopo: empresa master pode editar usuários de suas filiais
+        if (currentUser && currentUser.role === 'empresa') {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (!scopeIds || user.company?.id == null || !scopeIds.includes(user.company.id)) {
                 throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
             }
         }
 
-        // Validar se está tentando mover para outra empresa
-        if (currentUser && currentUser.role !== 'master' && dto.companyId != null && dto.companyId !== currentUser.companyId) {
-            throw new ForbiddenException('Apenas master pode mover usuário de empresa');
+        // Validar se está tentando mover para outra empresa:
+        // master oficial pode mover livremente; empresa (mesmo master) só pode mover dentro do próprio escopo
+        if (currentUser && currentUser.role === 'empresa' && dto.companyId != null) {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (!scopeIds || !scopeIds.includes(dto.companyId)) {
+                throw new ForbiddenException('Apenas master pode mover usuário para fora do escopo da empresa');
+            }
         }
 
         if (user.role === UserRole.MASTER) {
             throw new BadRequestException('Não é permitido editar usuário MASTER');
         }
 
-        if (!user.plan) {
-            throw new BadRequestException('Usuário não possui plano vinculado');
-        }
+        // Obs: usuário pode não ter plano vinculado (criado sem permissões customizadas).
+        // Só é obrigatório quando se vai alterar permissões — tratado no bloco de permissionIds abaixo.
 
         if (dto.companyId) {
             // Se mudar de empresa, carregar com relations e validar limite
@@ -458,10 +549,10 @@ export class UserService {
                 }
             }
 
-            // Plano compartilhado (da empresa ou do sistema): mutar afetaria todos os
-            // usuários que o compartilham — cria wrapper custom individual no lugar
+            // Plano compartilhado (da empresa ou do sistema) OU usuário sem plano:
+            // mutar afetaria todos que compartilham — cria wrapper custom individual no lugar
             const isSharedPlan =
-                user.plan.isSystem || !user.plan.name.startsWith('custom-');
+                !user.plan || user.plan.isSystem || !user.plan.name.startsWith('custom-');
 
             if (isSharedPlan) {
                 const customPlan = this.planRepo.create({
@@ -471,8 +562,9 @@ export class UserService {
                 });
                 user.plan = await this.planRepo.save(customPlan);
             } else {
-                user.plan.permissions = permissions;
-                await this.planRepo.save(user.plan);
+                // isSharedPlan === false garante user.plan não-nulo
+                user.plan!.permissions = permissions;
+                await this.planRepo.save(user.plan!);
             }
         }
 
@@ -480,7 +572,8 @@ export class UserService {
             user.username = dto.username;
         }
 
-        if (dto.email) {
+        if (dto.email && dto.email !== user.email) {
+            await this.assertEmailAvailable(dto.email, user.uid);
             user.email = dto.email;
         }
 
@@ -513,9 +606,10 @@ export class UserService {
             throw new NotFoundException('Usuário não encontrado');
         }
 
-        // Tenant check: não-master só pode remover usuários da própria empresa
-        if (currentUser && currentUser.role !== 'master') {
-            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+        // Tenant check via escopo: empresa master pode remover usuários de suas filiais
+        if (currentUser && currentUser.role === 'empresa') {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (!scopeIds || user.company?.id == null || !scopeIds.includes(user.company.id)) {
                 throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
             }
         }
@@ -554,10 +648,8 @@ export class UserService {
         }
 
         if (currentUser.role !== UserRole.MASTER) {
-            if (
-                currentUser.companyId == null ||
-                user.company?.id !== currentUser.companyId
-            ) {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (!scopeIds || user.company?.id == null || !scopeIds.includes(user.company.id)) {
                 throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
             }
         }
@@ -580,9 +672,10 @@ export class UserService {
             throw new ForbiddenException('Acesso negado: operador só pode visualizar suas próprias permissões');
         }
 
-        // Empresa só pode ver permissões de usuários da própria empresa
+        // Empresa master pode ver permissões de usuários da própria empresa ou de suas filiais
         if (currentUser?.role === 'empresa') {
-            if (currentUser.companyId == null || user.company?.id !== currentUser.companyId) {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (!scopeIds || user.company?.id == null || !scopeIds.includes(user.company.id)) {
                 throw new ForbiddenException('Acesso negado: usuário pertence a outra empresa');
             }
         }
@@ -608,21 +701,33 @@ export class UserService {
                 'company',
             )
             .leftJoinAndSelect(
+                'company.parentCompany',
+                'parentCompany',
+            )
+            .leftJoinAndSelect(
                 'user.plan',
                 'plan',
             );
 
-        // TENANT SCOPING: não-master vê só sua empresa; operador vê só a si mesmo
+        // TENANT SCOPING via resolveScopeCompanyIds:
+        // - master oficial → null (sem restrição)
+        // - empresa master → [própria, ...filiais]
+        // - empresa filial / operador → [própria]
+        // Operador vê só a si mesmo (regra adicional)
         if (currentUser && currentUser.role === 'operador') {
             query.andWhere('user.uid = :uid', { uid: currentUser.userId });
-        } else if (currentUser && currentUser.role !== 'master') {
-            if (currentUser.companyId == null) {
-                query.andWhere('1 = 0'); // fail-closed: conta não-master sem empresa não vê nada
-            } else {
-                query.andWhere('user.company_id = :companyId', {
-                    companyId: currentUser.companyId,
-                });
+        } else if (currentUser) {
+            const scopeIds = await this.companyService.resolveScopeCompanyIds(currentUser);
+            if (scopeIds !== null) {
+                if (scopeIds.length === 0) {
+                    query.andWhere('1 = 0'); // fail-closed
+                } else if (scopeIds.length === 1) {
+                    query.andWhere('user.company_id = :companyId', { companyId: scopeIds[0] });
+                } else {
+                    query.andWhere('user.company_id IN (:...scopeIds)', { scopeIds });
+                }
             }
+            // scopeIds === null → master oficial, sem filtro de company
         }
 
         // BUSCA POR NOME
@@ -647,8 +752,26 @@ export class UserService {
         const [users, total] =
             await query.getManyAndCount();
 
+        // Expõe se a company do usuário é matriz (master) ou filial, igual ao findOneById.
+        // Filial = possui parentCompany (parent_company_id não nulo).
+        const data = users.map((u) => {
+            const parent = (u.company as any)?.parentCompany ?? null;
+            const parentCompanyId = parent?.id ?? null;
+            return {
+                ...u,
+                company: u.company
+                    ? {
+                          ...u.company,
+                          parentCompanyId,
+                          isMaster: parentCompanyId === null,
+                          parentCompany: undefined, // não vaza o objeto inteiro da matriz
+                      }
+                    : u.company,
+            };
+        });
+
         return {
-            data: users,
+            data,
             total,
             page,
             limit,

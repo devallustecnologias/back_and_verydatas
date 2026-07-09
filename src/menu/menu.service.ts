@@ -258,10 +258,10 @@ export class MenuService implements OnModuleInit {
       };
     }
 
-    // Passo 4: Buscar empresa com plano
+    // Passo 4: Buscar empresa com plano (e parentCompany para detectar filial)
     const company = await this.companyRepo.findOne({
       where: { id: currentUser.companyId },
-      relations: ['plan', 'plan.menus'],
+      relations: ['plan', 'plan.menus', 'parentCompany'],
     });
 
     if (!company) {
@@ -272,16 +272,31 @@ export class MenuService implements OnModuleInit {
       };
     }
 
+    // Passo 4b: Se é filial, usar plano e access control da master
+    const isBranch = company.parentCompany != null;
+    const sourceCompanyId = isBranch ? company.parentCompany!.id : currentUser.companyId;
+
+    let sourcePlanMenus: { key: string }[] | undefined;
+    if (isBranch) {
+      const masterCompany = await this.companyRepo.findOne({
+        where: { id: sourceCompanyId },
+        relations: ['plan', 'plan.menus'],
+      });
+      sourcePlanMenus = masterCompany?.plan?.menus;
+    } else {
+      sourcePlanMenus = company.plan?.menus;
+    }
+
     // Passo 5: Camada plano
-    const planKeys = company.plan?.menus ? company.plan.menus.map((m) => m.key) : [];
+    const planKeys = sourcePlanMenus ? sourcePlanMenus.map((m) => m.key) : [];
     const planActive = planKeys.length > 0;
 
-    // Passo 6: Camada árvore (access control)
+    // Passo 6: Camada árvore (access control) — usa empresa-fonte (master ou própria)
     let treeKeys: string[] = [];
     let treeActive = false;
 
     const accessControl = await this.accessControlRepo.findOne({
-      where: { company: { id: currentUser.companyId } },
+      where: { company: { id: sourceCompanyId } },
     });
 
     const checkedNodeIds = accessControl?.menuPermissions?.checkedNodes ?? [];
