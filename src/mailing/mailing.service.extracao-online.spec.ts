@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { MailingService } from './mailing.service';
+import { Wallet } from 'src/ledger/walled.entity';
+import { Ledger } from 'src/ledger/ledger.entity';
 
 describe('MailingService.consultarExtracaoOnline', () => {
   function buildService(balance = 5) {
@@ -29,12 +31,10 @@ describe('MailingService.consultarExtracaoOnline', () => {
         .fn()
         .mockReturnValue({ createQueryBuilder: jest.fn().mockReturnValue(qb) }),
       transaction: jest.fn(async (cb: any) => {
-        let getRepoCallCount = 0;
         const manager = {
-          getRepository: jest.fn(() => {
-            // First call returns walletRepo, second returns ledgerRepo
-            return getRepoCallCount++ === 0 ? walletRepo : managerLedgerRepo;
-          }),
+          getRepository: jest.fn((entity: any) =>
+            entity === Wallet ? walletRepo : managerLedgerRepo,
+          ),
         };
         return cb(manager);
       }),

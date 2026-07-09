@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { Wallet } from '../ledger/walled.entity';
-import { Ledger, LedgerType, LedgerOrigin } from '../ledger/ledger.entity';
+import { Wallet } from 'src/ledger/walled.entity';
+import { Ledger, LedgerType, LedgerOrigin } from 'src/ledger/ledger.entity';
 import { ConsignadoRapidoService } from './consignado-rapido.service';
 import { ExtracaoOnlineService } from './extracao-online.service';
 import { GerarMailingDto } from './dto/gerar-mailing.dto';
